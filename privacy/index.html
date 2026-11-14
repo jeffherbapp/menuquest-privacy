@@ -25,7 +25,7 @@
 
 <main class="narrow page">
 <h1>MenuQuest Privacy Policy</h1>
-<p class="date">Effective November 14, 2026</p>
+<p class="date">Effective November 15, 2026</p>
 
 <p class="summary"><strong>The short version:</strong> MenuQuest has no ads or tracking, and signing in is optional.
 Your restaurants, ratings, and notes stay on your device and in your own iCloud.
@@ -36,8 +36,9 @@ knows your app only by a random ID and doesn't keep what you send. None of it is
 your identity.</p>
 
 <h2>What stays on your device</h2>
-<p>Everything you create in MenuQuest — restaurants, menus, the dishes you've tried,
-ratings, notes, and saved menu photos — is stored on your device. If iCloud is turned on
+<p>Everything you create in MenuQuest — restaurants, menus, the dishes you've tried and the
+dates you had them, ratings, notes, quest progress, and saved menu photos — is stored on
+your device. MenuQuest keeps only the date of each meal, never the time or where you were. If iCloud is turned on
 for MenuQuest, the same data syncs through your private iCloud database so it's backed up
 and available on your other devices. That data is stored by Apple under
 <a href="https://www.apple.com/legal/privacy/">Apple's privacy policy</a>; the MenuQuest
@@ -65,9 +66,9 @@ searches, or location.</p>
     <tr><td>Menu problem reports (the reason you pick and an optional note)</td>
         <td>MenuQuest's server (Supabase)</td>
         <td>Only if you report a problem with a shared menu, to fix or hide bad menus. Stored with your random app ID so each person counts once.</td></tr>
-    <tr><td>Names and descriptions of dishes on menus you've saved</td>
+    <tr><td>Names and descriptions of dishes on a restaurant's current menu</td>
         <td>MenuQuest's server → Anthropic (Claude API)</td>
-        <td>For dishes saved before MenuQuest started describing dishes, to describe them (cuisine, cooking style, flavors) so recommendations can use them. Your ratings and notes are not sent; recommendations are worked out on your device.</td></tr>
+        <td>When you open a restaurant whose menu was saved before MenuQuest started describing dishes, to describe its dishes (cuisine, cooking style, flavors). The whole current menu is sent, so it doesn't reveal which dishes you've tried. Your ratings, notes and history are not sent; recommendations, quests and points are worked out on your device.</td></tr>
     <tr><td>A random app ID, and how many scans and lookups you made today</td>
         <td>MenuQuest's server (Supabase)</td>
         <td>The first time you scan or look up a restaurant, the app gets a random ID with no name, email, or other details attached. The server counts uses per day to keep the service fair and affordable. The counts are only used for that.</td></tr>
