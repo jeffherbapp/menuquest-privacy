@@ -60,6 +60,9 @@ searches, or location.</p>
     <tr><td>Your current location</td>
         <td>MenuQuest's server → Google (Places API)</td>
         <td>Only if you allow location access, when you open “Add Restaurant,” to list restaurants near you. MenuQuest doesn't save your location or use it in the background.</td></tr>
+    <tr><td>Your current location</td>
+        <td>Apple Maps (on your iPhone)</td>
+        <td>Only if you allow location access, when the Restaurants screen is open and you aren't at one of your restaurants, to guess which restaurant you're at (“Are you at…”). This goes to Apple, as with any map on your iPhone, under <a href="https://www.apple.com/legal/privacy/">Apple's privacy policy</a>; it doesn't go to Google or MenuQuest's server. When you tap Add, the restaurant's name and your location are sent to Google, through MenuQuest's server, to confirm it.</td></tr>
     <tr><td>The menu you scanned: section and dish names, descriptions, prices, and dish tags</td>
         <td>MenuQuest's server (Supabase)</td>
         <td>After you scan a verified restaurant's menu, so the next person who adds that restaurant gets the menu ready-made. Stored with the restaurant's Google Place ID and your random app ID (so bad uploads can be removed). Never includes your photos, ratings, notes, or which dishes you've tried, and isn't shown to other users with anything that identifies you.</td></tr>
@@ -115,8 +118,9 @@ the address below.</p>
 </ul>
 
 <h2>Location</h2>
-<p>MenuQuest asks for location access only “While Using the App,” and only uses it on the
-Add Restaurant screen to show places near you. You can say no and search by name instead,
+<p>MenuQuest asks for location access only “While Using the App.” It uses it to show places
+near you on the Add Restaurant screen, to tell when you're at one of your saved restaurants,
+and to guess the restaurant you're at with Apple Maps. You can say no and search by name instead,
 or change this anytime in Settings › Privacy &amp; Security › Location Services.</p>
 
 <h2>Camera and photos</h2>
