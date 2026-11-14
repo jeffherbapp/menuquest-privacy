@@ -3,140 +3,139 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MenuQuest Privacy Policy</title>
-<style>
-  :root { --ink: #2b1d16; --muted: #6b5b52; --accent: #e8612e; --bg: #fffaf5; --rule: #f0e4da; }
-  @media (prefers-color-scheme: dark) {
-    :root { --ink: #f5ece6; --muted: #b8a89e; --accent: #ff8a57; --bg: #1c1512; --rule: #3a2c25; }
-  }
-  body { margin: 0; background: var(--bg); color: var(--ink);
-         font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-  main { max-width: 680px; margin: 0 auto; padding: 48px 16px 64px; }
-  h1 { font-size: 32px; line-height: 1.2; margin: 0 0 4px; }
-  h2 { font-size: 20px; margin: 36px 0 8px; padding-top: 20px; border-top: 1px solid var(--rule); }
-  .date { color: var(--muted); margin: 0 0 24px; }
-  .summary { background: color-mix(in srgb, var(--accent) 10%, transparent);
-             border-left: 4px solid var(--accent); padding: 12px 16px; border-radius: 6px; }
-  a { color: var(--accent); }
-  table { width: 100%; border-collapse: collapse; font-size: 15px; }
-  th, td { text-align: left; vertical-align: top; padding: 8px 8px 8px 0; border-bottom: 1px solid var(--rule); }
-  th { color: var(--muted); font-weight: 600; }
-  @media (max-width: 520px) { table, tbody, tr, td, th { display: block; } thead { display: none; }
-    td { border: 0; padding: 2px 0; } tr { border-bottom: 1px solid var(--rule); padding: 8px 0; } }
-</style>
+<title>MenuQuest · Try the whole menu</title>
+<meta name="description" content="MenuQuest turns any restaurant's menu into a checklist. Mark off what you try, rate every dish, and work your way through the whole menu. Now in private beta for iPhone.">
+<meta name="theme-color" content="#faf5ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171311" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="MenuQuest · Try the whole menu">
+<meta property="og:description" content="Turn any restaurant's menu into a checklist. Mark off what you try, rate every dish, and clear the whole menu.">
+<meta property="og:image" content="https://menuquest.app/assets/icon-512.png">
+<meta property="og:url" content="https://menuquest.app/">
+<link rel="icon" href="/assets/favicon.png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/assets/site.css">
 </head>
 <body>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="/"><span class="mark" aria-hidden="true"></span>MenuQuest</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="#beta">Beta</a>
+      <a href="/support/">Support</a>
+      <a href="/privacy/">Privacy</a>
+    </nav>
+  </div>
+</header>
+
 <main>
-<h1>MenuQuest Privacy Policy</h1>
-<p class="date">Effective November 14, 2026</p>
+  <section class="wrap hero">
+    <div>
+      <p class="eyebrow">Try the whole menu</p>
+      <h1>Every dish, one checklist.</h1>
+      <p class="lead">MenuQuest turns your favorite restaurant's menu into a quest. Mark off what you try, rate every dish, keep notes for next time, and work your way through the whole menu.</p>
 
-<p class="summary"><strong>The short version:</strong> MenuQuest has no ads or tracking, and signing in is optional.
-Your restaurants, ratings, and notes stay on your device and in your own iCloud.
-A few things leave your device to make features work: menu photos you choose to scan
-(passed to Anthropic to read the menu), and restaurant searches and, if you allow it, your
-location (passed to Google to find restaurants). These go through MenuQuest's server, which
-knows your app only by a random ID and doesn't keep what you send. None of it is tied to
-your identity.</p>
+      <div class="signup" id="beta">
+        <h2>Join the beta</h2>
+        <p>MenuQuest is in private beta for iPhone. Leave your email and we'll send you an invite.</p>
+        <form id="beta-form" novalidate>
+          <label class="hp" aria-hidden="true">Leave this empty <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+          <input type="text" name="name" placeholder="First name (optional)" autocomplete="given-name" maxlength="100" aria-label="First name (optional)">
+          <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required aria-label="Email address">
+          <button class="button" type="submit">Request an invite</button>
+          <p class="status" role="status" aria-live="polite"></p>
+          <p class="note">We'll only use your email for the beta and launch news. <a href="/privacy/#website">Privacy</a></p>
+        </form>
+      </div>
+    </div>
+    <div class="phone"><img src="/assets/home.jpg" width="640" height="1391" alt="The MenuQuest home screen: you're at a Mano, 1 of 78 dishes tried, with pinned restaurants and a list of your places."></div>
+  </section>
 
-<h2>What stays on your device</h2>
-<p>Everything you create in MenuQuest — restaurants, menus, the dishes you've tried,
-ratings, notes, and saved menu photos — is stored on your device. If iCloud is turned on
-for MenuQuest, the same data syncs through your private iCloud database so it's backed up
-and available on your other devices. That data is stored by Apple under
-<a href="https://www.apple.com/legal/privacy/">Apple's privacy policy</a>; the MenuQuest
-developer cannot access it.</p>
+  <section class="wrap features" aria-label="How it works">
+    <p class="eyebrow">How it works</p>
 
-<h2>What leaves your device, and why</h2>
-<p>Requests go to MenuQuest's server (hosted by Supabase), which passes them on to the
-service that does the work and sends back the result. The server doesn't store your photos,
-searches, or location.</p>
-<table>
-  <thead><tr><th>Data</th><th>Sent to</th><th>When and why</th></tr></thead>
-  <tbody>
-    <tr><td>Menu photos, and the text your device reads from them</td>
-        <td>MenuQuest's server → Anthropic (Claude API)</td>
-        <td>Only when you tap “Read menu,” to turn the photos into a list of sections and dishes.</td></tr>
-    <tr><td>Restaurant search text</td>
-        <td>MenuQuest's server → Google (Places API)</td>
-        <td>Only when you search while adding a restaurant, to find and verify it.</td></tr>
-    <tr><td>Your current location</td>
-        <td>MenuQuest's server → Google (Places API)</td>
-        <td>Only if you allow location access, when you open “Add Restaurant,” to list restaurants near you. MenuQuest doesn't save your location or use it in the background.</td></tr>
-    <tr><td>The menu you scanned: section and dish names, descriptions, prices, and dish tags</td>
-        <td>MenuQuest's server (Supabase)</td>
-        <td>After you scan a verified restaurant's menu, so the next person who adds that restaurant gets the menu ready-made. Stored with the restaurant's Google Place ID and your random app ID (so bad uploads can be removed). Never includes your photos, ratings, notes, or which dishes you've tried, and isn't shown to other users with anything that identifies you.</td></tr>
-    <tr><td>Menu problem reports (the reason you pick and an optional note)</td>
-        <td>MenuQuest's server (Supabase)</td>
-        <td>Only if you report a problem with a shared menu, to fix or hide bad menus. Stored with your random app ID so each person counts once.</td></tr>
-    <tr><td>Names and descriptions of dishes on menus you've saved</td>
-        <td>MenuQuest's server → Anthropic (Claude API)</td>
-        <td>For dishes saved before MenuQuest started describing dishes, to describe them (cuisine, cooking style, flavors) so recommendations can use them. Your ratings and notes are not sent; recommendations are worked out on your device.</td></tr>
-    <tr><td>A random app ID, and how many scans and lookups you made today</td>
-        <td>MenuQuest's server (Supabase)</td>
-        <td>The first time you scan or look up a restaurant, the app gets a random ID with no name, email, or other details attached. The server counts uses per day to keep the service fair and affordable. The counts are only used for that.</td></tr>
-  </tbody>
-</table>
-<p>These requests don't include your name or contact details. Anthropic and Google receive
-only the request itself, not your app ID. Everything is used only to provide the feature
-you asked for. Each provider handles the
-data under its own terms:
-<a href="https://www.anthropic.com/legal/privacy">Anthropic's privacy policy</a> and
-<a href="https://policies.google.com/privacy">Google's privacy policy</a>; MenuQuest's
-server runs on Supabase (<a href="https://supabase.com/privacy">Supabase's privacy policy</a>).
-Your photos, notes, and ratings are never shared with other users, and your notes and
-ratings never leave your device except through your own iCloud.</p>
+    <div class="feature">
+      <div class="feature-text">
+        <h3>The menu, already there</h3>
+        <p>Add a restaurant and its menu appears: shared by other members, read from the restaurant's own website, or turned into a checklist from a photo you snap.</p>
+      </div>
+      <div class="phone"><img src="/assets/menu.jpg" width="640" height="1391" alt="Trattoria Sole's menu in MenuQuest, with every antipasti dish marked off and rated." loading="lazy"></div>
+    </div>
 
-<p>When you add a restaurant that has no menu in MenuQuest yet, MenuQuest's server may read
-that restaurant's own public website to find its menu, and adds it to the shared library.
-The only thing it uses from you is which restaurant you added.</p>
+    <div class="feature">
+      <div class="feature-text">
+        <h3>Rate it. Note it. Remember it.</h3>
+        <p>Give each dish stars and a note for next time. Your notes stay, even when a dish leaves the menu.</p>
+      </div>
+      <div class="phone"><img src="/assets/dish.jpg" width="640" height="1391" alt="A dish card for Burrata, tried and rated four stars, with a field for a note." loading="lazy"></div>
+    </div>
 
-<h2>Your account (optional)</h2>
-<p>You can use MenuQuest without signing in. If you choose to sign in, with Apple or with a
-link sent to your email, MenuQuest's server (Supabase) stores your account's email address
-(with Sign in with Apple, this can be a private relay address Apple creates for you) and links
-your app ID to it. Your daily usage counts and any menus or menu reports you share are then
-linked to your account. Your restaurants, ratings, and notes still stay on your device and in
-your iCloud.</p>
-<p>You can sign out or delete your account at any time in Settings › Account. Deleting it
-removes your account and email address from MenuQuest's server; menus you shared stay in the
-library but are no longer linked to you.</p>
+    <div class="feature">
+      <div class="feature-text">
+        <h3>Quests, badges, levels</h3>
+        <p>Every menu comes with quests: try every appetizer, or clear the whole menu. Earn badges, level up, and get a little confetti.</p>
+      </div>
+      <div class="phone"><img src="/assets/quests.jpg" width="640" height="1391" alt="The Quests screen: Level 3 Menu Explorer, 10 dishes tried, and the next quest with dishes left to try." loading="lazy"></div>
+    </div>
+  </section>
 
-<h2>What we don't do</h2>
-<ul>
-  <li>No advertising and no tracking across apps or websites.</li>
-  <li>No analytics SDKs.</li>
-  <li>No selling or sharing of your data.</li>
-  <li>No background location, and no access to your contacts or photo library beyond the photos you pick.</li>
-</ul>
-
-<h2>Location</h2>
-<p>MenuQuest asks for location access only “While Using the App,” and only uses it on the
-Add Restaurant screen to show places near you. You can say no and search by name instead,
-or change this anytime in Settings › Privacy &amp; Security › Location Services.</p>
-
-<h2>Camera and photos</h2>
-<p>MenuQuest asks for camera access so you can photograph menus, and lets you pick photos
-from your library. It only receives the photos you take or select.</p>
-
-<h2>Beta testing</h2>
-<p>If you test MenuQuest through Apple's TestFlight, Apple may share crash reports and any
-feedback you choose to submit with the developer, as described in
-<a href="https://www.apple.com/legal/internet-services/itunes/testflight/sren/terms.html">TestFlight's terms</a>.</p>
-
-<h2>Deleting your data</h2>
-<p>You can delete any dish or restaurant in the app. Deleting the app removes its data from
-your device; to remove the iCloud copy, go to Settings → [your name] → iCloud → Manage
-Account Storage → MenuQuest → Delete Data.</p>
-
-<h2>Children</h2>
-<p>MenuQuest is not directed at children under 13 and doesn't knowingly collect their data.</p>
-
-<h2>Changes</h2>
-<p>If this policy changes — for example, if MenuQuest adds accounts or shared menus — the
-updated version will be posted here with a new effective date before the change ships.</p>
-
-<h2>Contact</h2>
-<p>Questions? Email <a href="mailto:jeff@jeffherb.com">jeff@jeffherb.com</a>.</p>
+  <section class="narrow promises" aria-label="Our promises">
+    <p class="eyebrow">On the house</p>
+    <div class="card">
+      <div class="leader"><strong>No ads</strong><span class="dots"></span><span>Ever</span></div>
+      <div class="leader"><strong>No tracking</strong><span class="dots"></span><span>Across apps or websites</span></div>
+      <div class="leader"><strong>Your ratings and notes</strong><span class="dots"></span><span>On your phone and your iCloud</span></div>
+      <div class="leader"><strong>An account</strong><span class="dots"></span><span>Optional</span></div>
+    </div>
+  </section>
 </main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 MenuQuest</span>
+    <nav aria-label="Footer">
+      <a href="/support/">Support</a>
+      <a href="/privacy/">Privacy</a>
+      <a href="/menu-reader/">For restaurants</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const form = document.getElementById("beta-form");
+  const status = form.querySelector(".status");
+  const button = form.querySelector("button");
+  const endpoint = "https://anufzyrmkdzgfmwxasul.supabase.co/rest/v1/rpc/join_beta";
+  // The publishable key is meant to be public; the database only allows join_beta() with it.
+  const key = "sb_publishable_UB7Gr7e5WMitvojxORa7Ow_srPYffZV";
+
+  const say = (text, kind) => { status.textContent = text; status.className = "status " + (kind || ""); };
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const email = form.email.value.trim();
+    const name = form.name.value.trim();
+    if (form.website.value) { say("Thanks! You're on the list.", "ok"); form.reset(); return; } // bots
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { say("Please enter a valid email address.", "err"); form.email.focus(); return; }
+
+    button.disabled = true;
+    say("Sending…");
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "apikey": key },
+        body: JSON.stringify({ p_email: email, p_name: name || null, p_source: "website" }),
+      });
+      if (!response.ok) throw new Error(String(response.status));
+      say("Thanks! You're on the list. We'll email you an invite.", "ok");
+      form.reset();
+    } catch (error) {
+      say("Something went wrong. Please try again in a moment.", "err");
+    } finally {
+      button.disabled = false;
+    }
+  });
+})();
+</script>
 </body>
 </html>

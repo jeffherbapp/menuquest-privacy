@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MenuQuest for restaurants</title>
+<meta name="description" content="How MenuQuest reads restaurant menus from their own websites, and how to opt out or get a menu corrected.">
+<meta name="theme-color" content="#faf5ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171311" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="/assets/favicon.png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="/"><span class="mark" aria-hidden="true"></span>MenuQuest</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/#beta">Beta</a>
+      <a href="/support/">Support</a>
+      <a href="/privacy/">Privacy</a>
+    </nav>
+  </div>
+</header>
+
+<main class="narrow page">
+<p class="eyebrow">For restaurants</p>
+<h1>How MenuQuest reads your menu</h1>
+<p class="date">MenuQuest's menu reader, MenuQuestBot, fills in menus so diners don't have to type them.</p>
+
+<p class="summary"><strong>The short version:</strong> MenuQuest helps diners work through your menu dish by dish, which means more people ordering more of what you make. We read menus only from your own website, follow your robots.txt, and fix or remove a menu whenever you ask.</p>
+
+<h2>What MenuQuestBot does</h2>
+<ul>
+  <li>Visits only your restaurant's own website, as listed on your Google Business Profile. Never delivery, booking or review sites.</li>
+  <li>Reads your menu page, or a menu PDF or image linked from it, and saves dish names, descriptions and prices so members can mark off what they've tried.</li>
+  <li>Visits only when a member adds your restaurant and MenuQuest has no menu for it yet. If it can't find one, it waits at least a day, and up to 30 days, before trying again.</li>
+  <li>Identifies itself with the user agent <code>MenuQuestBot/1.0 (+https://menuquest.app/menu-reader)</code>.</li>
+</ul>
+
+<h2>Opting out</h2>
+<p>Add this to your website's <code>robots.txt</code> and MenuQuestBot won't read any of it:</p>
+<pre>User-agent: MenuQuestBot
+Disallow: /</pre>
+<p>To keep it out of just part of your site, use <code>Disallow: /that-path/</code> instead. MenuQuestBot also follows rules you've set for all crawlers (<code>User-agent: *</code>) when you have no MenuQuestBot section.</p>
+<p>Diners can still photograph a paper menu in your restaurant and scan it for their own use.</p>
+
+<h2>Correcting or removing a menu</h2>
+<p>Email <a href="mailto:jeff@jeffherb.com">jeff@jeffherb.com</a> with your restaurant's name and address, and tell us what's wrong or that you'd like it removed. We'll take care of it, usually within a couple of days. You're also welcome to send a current menu and we'll use that instead.</p>
+
+<h2>Questions about partnering</h2>
+<p>MenuQuest has no paid placements or partnerships today. If you'd like to talk about featuring your restaurant, get in touch at the address above.</p>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 MenuQuest</span>
+    <nav aria-label="Footer">
+      <a href="/support/">Support</a>
+      <a href="/privacy/">Privacy</a>
+      <a href="/menu-reader/">For restaurants</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>
