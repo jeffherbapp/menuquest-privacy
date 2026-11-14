@@ -18,7 +18,7 @@
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.6 var(--sans); }
 a { color: var(--accent); text-underline-offset: 2px; }
-img { max-width: 100%; display: block; }
+img { max-width: 100%; height: auto; display: block; }
 h1, h2, h3 { font-family: var(--serif); line-height: 1.15; letter-spacing: -0.01em; }
 
 .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
