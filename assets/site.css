@@ -43,7 +43,9 @@ h1, h2, h3 { font-family: var(--serif); line-height: 1.15; letter-spacing: -0.01
 .leader .dots { flex: 1; border-bottom: 2px dotted color-mix(in srgb, var(--ink) 28%, transparent); transform: translateY(-4px); }
 
 /* Hero */
-.hero { padding: 40px 0 24px; display: grid; gap: 40px; align-items: center; grid-template-columns: 1.1fr 0.9fr; }
+.hero { padding-block: 40px 24px; display: grid; gap: 40px; align-items: center; grid-template-columns: 1.1fr 0.9fr; }
+.hero .eyebrow { max-width: 320px; }
+.hero .eyebrow::before { display: none; }
 .hero h1 { font-size: clamp(40px, 7vw, 64px); margin: 18px 0 16px; }
 .hero p.lead { font-size: 20px; color: var(--ink-soft); margin: 0 0 28px; max-width: 30em; }
 .hero .phone { justify-self: center; width: min(320px, 80vw); }
@@ -70,7 +72,7 @@ h1, h2, h3 { font-family: var(--serif); line-height: 1.15; letter-spacing: -0.01
 .signup .status.err { color: var(--accent); }
 
 /* Features */
-.features { padding: 56px 0 24px; }
+.features { padding-block: 56px 24px; }
 .features .eyebrow { margin-bottom: 32px; }
 .feature { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; padding: 28px 0; }
 .feature:nth-child(even) .feature-text { order: 2; }
@@ -79,14 +81,14 @@ h1, h2, h3 { font-family: var(--serif); line-height: 1.15; letter-spacing: -0.01
 .feature .phone { width: min(280px, 72vw); justify-self: center; }
 
 /* "Menu" list of promises */
-.promises { padding: 40px 0 64px; }
+.promises { padding-block: 40px 64px; }
 .promises .card { background: var(--card); border: 1px solid var(--rule); border-radius: 20px; padding: 24px; }
 .promises .leader { padding: 10px 0; font-size: 17px; }
 .promises .leader strong { font-family: var(--serif); font-size: 19px; }
 .promises .leader span:last-child { color: var(--ink-soft); font-size: 15px; white-space: nowrap; }
 
 /* Text pages (privacy, support, menu reader) */
-.page { padding: 24px 0 64px; }
+.page { padding-block: 24px 64px; }
 .page h1 { font-size: clamp(32px, 6vw, 44px); margin: 12px 0 4px; }
 .page h2 { font-size: 24px; margin: 40px 0 8px; padding-top: 20px; border-top: 1px solid var(--rule); }
 .page .date { color: var(--ink-soft); margin: 0 0 24px; }
@@ -109,6 +111,7 @@ h1, h2, h3 { font-family: var(--serif); line-height: 1.15; letter-spacing: -0.01
 
 @media (max-width: 760px) {
   .hero { grid-template-columns: 1fr; padding-top: 16px; gap: 32px; }
+  .hero .eyebrow { max-width: none; }
   .feature { grid-template-columns: 1fr; gap: 20px; padding: 20px 0; }
   .feature:nth-child(even) .feature-text { order: 0; }
   .site-nav { gap: 14px; font-size: 14px; }
