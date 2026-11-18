@@ -196,3 +196,7 @@
 .costs-card h3 { font-size: 16px; margin: 14px 0 6px; }
 .faded-row { opacity: 0.55; }
 .periods td.bad { color: var(--accent); font-weight: 600; }
+
+/* Seeding run (A8b) */
+.seed-card { border: 1px solid var(--accent); border-radius: 14px; padding: 12px 14px; margin-top: 14px; background: var(--paper); }
+.seed-card h3 { margin-top: 0 !important; }
