@@ -1,0 +1,31 @@
+/* The admin panel. Builds on /assets/site.css. */
+.site-header .wrap { min-height: 32px; }
+.admin { padding-bottom: 48px; }
+.admin h1 { font-size: 28px; margin: 6px 0 12px; }
+.admin [hidden] { display: none !important; }
+
+.card { background: var(--card); border: 1px solid var(--rule); border-radius: 20px; padding: 20px; margin: 16px 0; }
+.card > p { color: var(--ink-soft); font-size: 15px; margin: 0 0 14px; }
+.card form { display: flex; flex-direction: column; gap: 10px; }
+.card label { font-size: 15px; font-weight: 600; }
+.card input[type="email"], .card input[type="text"] {
+  font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--rule);
+  border-radius: 12px; padding: 12px 14px; width: 100%; }
+.card input[inputmode="numeric"] { font: 24px/1.2 ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: 0.2em; }
+.card input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.card .button { width: 100%; }
+.card img { background: #fff; border-radius: 12px; padding: 8px; margin: 0 auto 12px; width: 200px; height: 200px; }
+.card details { font-size: 15px; margin-bottom: 14px; }
+.card code { font: 14px ui-monospace, "SF Mono", Menlo, monospace; overflow-wrap: anywhere; user-select: all; }
+
+.status { font-size: 15px; margin: 4px 0 0; min-height: 1.4em; color: var(--ink-soft); }
+.status.err { color: var(--accent); }
+
+.link-button { font: 15px var(--sans); color: var(--accent); background: none; border: 0; padding: 8px 0; cursor: pointer;
+               text-decoration: underline; text-underline-offset: 2px; }
+.signed-in { color: var(--ink-soft); font-size: 15px; margin: 0; overflow-wrap: anywhere; }
+
+@media (min-width: 761px) {
+  .card { max-width: 460px; }
+  #panel .card { max-width: none; }
+}
