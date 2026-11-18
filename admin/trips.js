@@ -178,7 +178,7 @@
     });
     c.append(form, el("p", "muted small-print",
       "An install that isn't signed in can end up with a new account ID (for example on a new phone). Signing in with Apple keeps the same one."));
-    $("trip-access").replaceChildren(c);
+    $("trip-access").replaceChildren(c, addCityCard());
   }
 
   async function setMode(mode) {
@@ -197,6 +197,203 @@
     if (!res) return;
     say((t.note || "That account") + " removed.");
     loadAccess();
+  }
+
+  // MARK: Adding a city to curate
+
+  const newCity = { query: "", candidates: null, chosen: null };
+
+  function zoneSelect(selected) {
+    const sel = el("select");
+    sel.setAttribute("aria-label", "Time zone");
+    let zones = [];
+    try { zones = Intl.supportedValuesOf("timeZone"); } catch (_) { zones = []; }
+    const here = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const pick = selected || here || "America/Chicago";
+    if (!zones.includes(pick)) zones.unshift(pick);
+    sel.append(new Option("Time zone: choose one", ""));
+    for (const z of zones) sel.append(new Option(z.replace(/_/g, " "), z));
+    sel.value = pick;
+    return sel;
+  }
+
+  function addCityCard() {
+    const c = el("section", "card");
+    c.append(el("h3", null, "Add a city to curate"));
+    c.append(el("p", "muted", "Find it, check the details, save. It stays hidden from the app until Trip Mode shows it. The search uses OpenStreetMap (free)."));
+    const find = el("form", "link-form");
+    const q = el("input");
+    q.type = "text"; q.placeholder = "City, e.g. Nashville, TN"; q.setAttribute("aria-label", "City"); q.maxLength = 120; q.value = newCity.query;
+    const go = el("button", "button small quiet", "Find");
+    go.type = "submit";
+    find.append(q, go);
+    find.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      newCity.query = q.value;
+      newCity.chosen = null;
+      say("Searching OpenStreetMap…");
+      const res = await api("trip_find_city", { query: q.value }, "The search didn't work");
+      if (!res) return;
+      newCity.candidates = res.candidates || [];
+      say(newCity.candidates.length ? "" : "Nothing found. Try the city and state or country, e.g. Lisbon, Portugal.");
+      loadAccess();
+    });
+    c.append(find);
+
+    if (newCity.candidates && !newCity.chosen) {
+      const ul = el("ul", "plain-list");
+      for (const cand of newCity.candidates) {
+        const li = el("li");
+        li.append(el("strong", null, cand.label), el("span", "muted small-print", " · " + cand.latitude + ", " + cand.longitude));
+        li.append(document.createTextNode(" "), button("Use this", null, () => { newCity.chosen = { ...cand }; loadAccess(); }));
+        ul.append(li);
+      }
+      c.append(ul);
+    }
+
+    if (newCity.chosen) {
+      const ch = newCity.chosen;
+      const form = el("form", "trip-form");
+      const name = el("input"); name.type = "text"; name.value = ch.name; name.maxLength = 100; name.setAttribute("aria-label", "Name"); name.placeholder = "Name";
+      const region = el("input"); region.type = "text"; region.value = ch.region || ""; region.maxLength = 100; region.setAttribute("aria-label", "State or region"); region.placeholder = "State or region";
+      const zone = zoneSelect(ch.timeZone);
+      const save = el("button", "button small", "Save city");
+      save.type = "submit";
+      form.append(name, region, zone, save);
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!zone.value) return say("Choose the city's time zone.", true);
+        say("Saving…");
+        const res = await api("trip_add_city", {
+          name: name.value, region: region.value, country: ch.country, latitude: ch.latitude, longitude: ch.longitude, timeZone: zone.value,
+        }, "Couldn't save the city");
+        if (!res) return;
+        const added = name.value.trim();
+        newCity.query = ""; newCity.candidates = null; newCity.chosen = null;
+        trip.loaded = false;
+        await loadCities();
+        say(added + " added. It's hidden from the app until Trip Mode shows it.");
+      });
+      c.append(form, el("p", "muted small-print",
+        "Country " + ch.country + " · center " + ch.latitude + ", " + ch.longitude + "." +
+        (ch.timeZone ? " Time zone filled in from the state; check it for states with two time zones." : " Choose the time zone; it's used for reservation reminders.")));
+    }
+    return c;
+  }
+
+  // MARK: Importing a CSV file (curated picks or specialties)
+
+  const TEMPLATE_FILES = {
+    spots: "name,neighborhood,cuisine,price_level,reason,menu_url,google_place_id,reservation_url,source_url,order,status\n" +
+      'Example Beef Stand,West Loop,Sandwiches,$,"A classic dipped beef sandwich, ordered hot and wet.",https://www.example.com/menu,,https://www.example.com/reservations,https://www.example.com/best-cheap-eats,1,pending\n',
+    specialties: "name,description,match_terms,spots,status\n" +
+      'Italian beef,"Thin-sliced roast beef on a French roll, dipped in its juices.",italian beef;beef sandwich,Example Beef Stand,pending\n',
+  };
+  const ACTION_TEXT = { new: "new", update: "updates", error: "skipped" };
+  const imp = { kind: "spots", fileName: "", csv: "", result: null };
+
+  function download(kind) {
+    const blob = new Blob([TEMPLATE_FILES[kind]], { type: "text/csv" });
+    const a = el("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = kind + ".csv";
+    document.body.append(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+
+  function importCard() {
+    const c = el("section", "card");
+    c.append(el("h3", null, "Import from a file"));
+    c.append(el("p", "muted",
+      "A CSV of your own picks or local specialties for " + trip.data.city.name + ". You'll see what each row does before anything is saved. " +
+      "Rows match existing picks by name, so uploading again updates them; a blank cell never clears anything. Free: no Google or Claude calls."));
+    const kinds = el("div", "chips");
+    for (const [k, label] of [["spots", "Picks"], ["specialties", "Specialties"]]) {
+      const b = button(label, "chip", () => { imp.kind = k; imp.result = null; renderCity(); });
+      b.setAttribute("aria-pressed", String(imp.kind === k));
+      kinds.append(b);
+    }
+    c.append(kinds);
+    const row = el("div", "button-row");
+    const file = el("input");
+    file.type = "file"; file.accept = ".csv,text/csv"; file.setAttribute("aria-label", "CSV file");
+    file.addEventListener("change", () => {
+      const f = file.files && file.files[0];
+      if (!f) return;
+      if (f.size > 300000) return say("That file is over 300 KB. Split it into smaller files.", true);
+      const reader = new FileReader();
+      reader.onload = () => { imp.fileName = f.name; imp.csv = String(reader.result || ""); preview(); };
+      reader.onerror = () => say("Couldn't read that file.", true);
+      reader.readAsText(f, "utf-8");
+    });
+    row.append(file, button("Download the " + (imp.kind === "spots" ? "picks" : "specialties") + " template", "button small quiet", () => download(imp.kind)));
+    c.append(row);
+    if (imp.kind === "specialties") c.append(el("p", "muted small-print", "Import the picks first: specialties link to picks by name, and only to picks matched to Google."));
+    if (imp.result) c.append(previewView());
+    return c;
+  }
+
+  async function preview() {
+    say("Checking " + imp.fileName + "…");
+    const res = await api("trip_import", { cityId: trip.data.city.id, kind: imp.kind, csv: imp.csv, apply: false }, "Couldn't check the file");
+    if (!res) return;
+    imp.result = res;
+    say("");
+    renderCity();
+  }
+
+  function previewView() {
+    const r = imp.result;
+    const box = el("div", "trip-candidates");
+    if ((r.fileErrors || []).length) {
+      box.append(el("p", "status err", r.fileErrors.join(" ")));
+      return box;
+    }
+    box.append(el("p", null, imp.fileName + ": " + num(r.added) + " new, " + num(r.updated) + " updates, " + num(r.skipped) + " with problems (skipped)." +
+      ((r.ignoredColumns || []).length ? " Columns not used: " + r.ignoredColumns.join(", ") + "." : "")));
+    const scroller = el("div", "table-scroll");
+    const table = el("table", "periods import-table");
+    const head = el("tr");
+    for (const h of ["Row", "Name", "", "Notes"]) head.append(el("th", null, h));
+    const thead = el("thead"); thead.append(head); table.append(thead);
+    const tbody = el("tbody");
+    for (const row of r.rows || []) {
+      const tr = el("tr");
+      tr.append(el("td", null, row.row), el("td", null, row.name || "–"));
+      const action = el("td");
+      action.append(badge(ACTION_TEXT[row.action] || row.action, row.action === "error" ? "off" : "on"));
+      tr.append(action);
+      const notes = el("td", "import-notes");
+      for (const e of row.errors || []) notes.append(el("div", "err-text", e));
+      for (const w of row.warnings || []) notes.append(el("div", "muted", w));
+      tr.append(notes);
+      tbody.append(tr);
+    }
+    table.append(tbody);
+    scroller.append(table);
+    box.append(scroller);
+    const ready = (r.added || 0) + (r.updated || 0);
+    const rowBtns = el("div", "button-row");
+    const go = button(ready ? "Import " + ready + " row" + (ready === 1 ? "" : "s") : "Nothing to import", "button small", apply);
+    go.disabled = !ready;
+    rowBtns.append(go, button("Cancel", "button small quiet", () => { imp.result = null; imp.csv = ""; renderCity(); }));
+    box.append(rowBtns);
+    return box;
+  }
+
+  async function apply() {
+    const r = imp.result || {};
+    const ok = window.confirm("Import " + imp.fileName + " into " + trip.data.city.name + "?\n\n" +
+      num(r.added) + " new, " + num(r.updated) + " updated" + (r.skipped ? ", " + num(r.skipped) + " skipped" : "") + ". Free; nothing shows in the app until the city does.");
+    if (!ok) return;
+    say("Importing…");
+    const res = await api("trip_import", { cityId: trip.data.city.id, kind: imp.kind, csv: imp.csv, apply: true }, "The import didn't work");
+    if (!res) return;
+    imp.result = null; imp.csv = "";
+    trip.filter = "all";
+    say("Imported: " + num(res.added) + " new, " + num(res.updated) + " updated" + (res.skipped ? ", " + num(res.skipped) + " skipped" : "") + ".");
+    await reload();
   }
 
   async function openCity(id, quiet) {
@@ -228,7 +425,7 @@
     const head = el("div", "detail-head");
     head.append(el("h2", null, d.city.name + (d.city.region ? ", " + d.city.region : "")));
     head.append(el("p", "muted", d.city.active ? "Shown in the app" : "Hidden from the app until Trip Mode ships (T6)"));
-    box.replaceChildren(back, head, starterCard(), spotsCard(), addCard(), specialtiesCard());
+    box.replaceChildren(back, head, starterCard(), importCard(), spotsCard(), addCard(), specialtiesCard());
   }
 
   // Starter list: the latest run, its guides, the cost, and the button.
