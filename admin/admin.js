@@ -425,7 +425,7 @@
     if (name === "background" && !bg.loaded) loadBackground();
     $("tab-trips").hidden = name !== "trips";
     $("tab-users").hidden = name !== "users";
-    if (name === "users" && !users.loaded) loadUsers(false);
+    if (name === "users" && !users.loaded) { loadUsers(false); loadFeatures(); }
     if (name === "trips" && window.MQTrips) window.MQTrips.open();
     if (name === "tests" && !gate.loaded) loadGate();
     try { sessionStorage.setItem("menuquest-admin-tab", name); } catch (_) { /* fine */ }
@@ -1654,9 +1654,87 @@
     $("users-more").hidden = users.items.length >= users.total;
   }
 
+  // MARK: Features (A12): every app feature's switch and testers, from app_features.
+
+  const FEATURE_MODES = [["off", "Off"], ["testers", "Testers list"], ["everyone", "Everyone"]];
+
+  async function loadFeatures() {
+    try {
+      const res = await callApi("features");
+      if (res.status !== 200) {
+        $("features-card").replaceChildren(el("p", "status err", "Couldn't load the features (" + res.status + ")."));
+        return;
+      }
+      renderFeatures(Array.isArray(res.body) ? res.body : []);
+    } catch (e) {
+      console.error(e);
+      $("features-card").replaceChildren(el("p", "status err", "Couldn't reach the server for the features."));
+    }
+  }
+
+  function renderFeatures(list) {
+    const card = el("section", "card features-card");
+    card.append(el("h2", null, "Features"));
+    card.append(el("p", "muted", "What each feature shows in the app: nobody, the accounts on its testers list, or everyone. " +
+      "The app asks when it opens. Add or remove testers from an account below."));
+    for (const f of list) {
+      const name = FEATURE_NAMES[f.name] || f.name;
+      const block = el("div", "feature-block");
+      const head = el("div", "switch-head");
+      head.append(el("strong", null, name), el("span", "muted small-print", "changed " + when(f.updated_at)));
+      const chips = el("div", "chips");
+      for (const [mode, label] of FEATURE_MODES) {
+        const b = button(label, "chip", () => setFeatureMode(f, mode));
+        b.setAttribute("aria-pressed", String(f.mode === mode));
+        chips.append(b);
+      }
+      block.append(head, chips);
+      const testers = f.testers || [];
+      const p = el("p", "muted", testers.length ? num(testers.length) + " tester" + (testers.length === 1 ? "" : "s") + ": " : "No testers yet.");
+      testers.forEach((t, i) => {
+        if (i) p.append(document.createTextNode(", "));
+        p.append(button(t.note || String(t.user_id).slice(0, 8), null, () => openUser(t.user_id)));
+      });
+      block.append(p);
+      card.append(block);
+    }
+    if (!list.length) card.append(el("p", "muted", "No features yet."));
+    const st = el("p", "status", "");
+    st.id = "features-status";
+    st.setAttribute("role", "status");
+    card.append(st);
+    $("features-card").replaceChildren(card);
+  }
+
+  async function setFeatureMode(f, mode) {
+    if (f.mode === mode) return;
+    const name = FEATURE_NAMES[f.name] || f.name;
+    const text = { off: "Nobody will see " + name + ".", testers: "Only the accounts on its testers list will see " + name + ".",
+      everyone: "Every tester will see " + name + " the next time they open the app." }[mode];
+    if (!window.confirm("Change " + name + " to \"" + FEATURE_MODES.find((m) => m[0] === mode)[1] + "\"?\n\n" + text)) return;
+    const st = $("features-status");
+    if (st) { st.className = "status"; st.textContent = "Saving…"; }
+    try {
+      const res = await callApi("set_feature_mode", { feature: f.name, mode, confirm: mode === "everyone" });
+      if (res.status === 401) return route();
+      if (res.status !== 200) {
+        const m = res.body && res.body.error && res.body.error.message;
+        if (st) { st.className = "status err"; st.textContent = m || "That didn't work (" + res.status + ")."; }
+        return;
+      }
+      await loadFeatures();
+      const st2 = $("features-status");
+      if (st2) st2.textContent = text;
+    } catch (e) {
+      console.error(e);
+      if (st) { st.className = "status err"; st.textContent = "Couldn't reach the server. Nothing changed."; }
+    }
+  }
+
   async function openUser(id) {
     users.id = id;
     $("users-list").hidden = true;
+    $("features-card").hidden = true;
     $("users-detail").hidden = false;
     $("users-detail").replaceChildren(el("p", "status", "Loading…"));
     try {
@@ -1678,7 +1756,9 @@
       users.id = null;
       $("users-detail").hidden = true;
       $("users-list").hidden = false;
+      $("features-card").hidden = false;
       loadUsers(false);
+      loadFeatures();
     });
   }
 
@@ -1795,6 +1875,7 @@
         return;
       }
       await openUser(account.id);
+      loadFeatures();
       const st2 = $("user-status");
       if (st2) st2.textContent = add ? "Added." : "Removed.";
     } catch (e) {

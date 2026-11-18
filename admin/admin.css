@@ -246,3 +246,9 @@
 #users-detail .button.small { width: auto; }
 #users-detail code { font: 13px ui-monospace, "SF Mono", Menlo, monospace; overflow-wrap: anywhere; user-select: all; }
 @media (max-width: 520px) { #users-detail .button.small { width: 100%; } }
+
+/* Features (A12) */
+.features-card h2 { font-size: 20px; margin: 0 0 6px; }
+.feature-block { border-top: 1px solid var(--rule); padding: 10px 0; }
+.feature-block .chips { margin: 6px 0; }
+.features-card .link-button { padding: 0; font-size: 14px; }
