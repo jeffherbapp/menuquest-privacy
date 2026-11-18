@@ -177,7 +177,7 @@
       loadAccess();
     });
     c.append(form, el("p", "muted small-print",
-      "An install that isn't signed in gets a new account ID if the app is deleted and reinstalled. Sign in with Apple on your phone to keep the same one."));
+      "An install that isn't signed in can end up with a new account ID (for example on a new phone). Signing in with Apple keeps the same one."));
     $("trip-access").replaceChildren(c);
   }
 
