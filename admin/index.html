@@ -14,7 +14,7 @@
 <meta name="theme-color" content="#171311" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="/assets/favicon.png">
 <link rel="stylesheet" href="/assets/site.css?v=3">
-<link rel="stylesheet" href="/admin/admin.css?v=1">
+<link rel="stylesheet" href="/admin/admin.css?v=2">
 </head>
 <body>
 <header class="site-header">
@@ -100,13 +100,16 @@
   <section id="panel" hidden>
     <h1>MenuQuest admin</h1>
     <p class="signed-in">Signed in as <span id="who"></span></p>
-    <div class="card">
-      <p>You're in. The dashboard arrives in the next update.</p>
+    <div class="toolbar">
+      <p class="status" id="dash-status" role="status"></p>
+      <button type="button" class="link-button" id="dash-refresh">Refresh</button>
     </div>
+    <!-- Filled by admin.js from admin-api's dashboard route. -->
+    <div id="dashboard" class="dash"></div>
   </section>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous"></script>
-<script src="/admin/admin.js?v=1"></script>
+<script src="/admin/admin.js?v=2"></script>
 </body>
 </html>

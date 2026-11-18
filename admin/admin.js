@@ -67,6 +67,100 @@
     return { status: res.status, body: json };
   }
 
+  // MARK: Dashboard (A4)
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = String(text);
+    return node;
+  }
+
+  const num = (v) => (typeof v === "number" && isFinite(v) ? v.toLocaleString() : "–");
+  const get = (obj, path) => path.split(".").reduce((o, k) => (o && typeof o === "object" ? o[k] : undefined), obj);
+
+  /** A card with a heading, big numbers, and optionally a Today / 7 days / 30 days table. */
+  function card(title, tiles, rows, note) {
+    const c = el("section", "card dash-card");
+    c.append(el("h2", null, title));
+    if (tiles.length) {
+      const t = el("div", "tiles");
+      for (const [label, value] of tiles) {
+        const tile = el("div", "tile");
+        tile.append(el("span", "tile-value", num(value)), el("span", "tile-label", label));
+        t.append(tile);
+      }
+      c.append(t);
+    }
+    if (rows.length) {
+      const table = el("table", "periods");
+      const head = el("tr");
+      for (const h of ["", "Today", "7 days", "30 days"]) head.append(el("th", null, h));
+      const thead = el("thead");
+      thead.append(head);
+      table.append(thead);
+      const tbody = el("tbody");
+      for (const [label, values] of rows) {
+        const tr = el("tr");
+        tr.append(el("th", null, label));
+        for (const k of ["today", "d7", "d30"]) tr.append(el("td", null, num(values && values[k])));
+        tbody.append(tr);
+      }
+      table.append(tbody);
+      c.append(table);
+    }
+    if (note) c.append(el("p", "note", note));
+    return c;
+  }
+
+  function renderDashboard(d) {
+    const box = $("dashboard");
+    box.replaceChildren(
+      card("Testers", [["active in 7 days", get(d, "users.active.d7")], ["active today", get(d, "users.active.today")]],
+        [["Active", get(d, "users.active")], ["New installs", get(d, "users.new")]],
+        "An install counts as active when the app used its sign-in in that period. Your admin account isn't counted."),
+      card("Users", [
+        ["installs", get(d, "users.total")], ["anonymous", get(d, "users.anonymous")],
+        ["Sign in with Apple", get(d, "users.apple")], ["email", get(d, "users.email")],
+      ], []),
+      card("Restaurants", [
+        ["added by users", get(d, "restaurants.added.total")],
+        ["in the library", get(d, "restaurants.library_places")],
+        ["with a menu ready", get(d, "restaurants.with_menu")],
+      ], [["Added by users", get(d, "restaurants.added")]],
+        "\"Added\" counts restaurants a user added first; adding one already in the library doesn't count again."),
+      card("Menus", [["shared menus", get(d, "menus.shared_menus")]], [
+        ["Website lookups", get(d, "menus.website_reads")],
+        ["Photo scans", get(d, "menus.photo_scans")],
+        ["New website menus", get(d, "menus.new_shared.website")],
+        ["New scanned menus", get(d, "menus.new_shared.scan")],
+        ["New menu versions", get(d, "menus.new_versions")],
+      ], "Lookups and scans are requests from the app, including ones answered from a saved menu. Menu versions are the background reader's."),
+    );
+    const at = d && d.generated_at ? new Date(d.generated_at) : null;
+    $("dash-status").textContent = at ? "Updated " + at.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + ". Days are UTC days." : "";
+  }
+
+  async function loadDashboard() {
+    $("dash-status").className = "status";
+    $("dash-status").textContent = "Loading…";
+    $("dash-refresh").disabled = true;
+    try {
+      const res = await callApi("dashboard");
+      if (res.status === 200) return renderDashboard(res.body);
+      if (res.status === 401) return route(); // the sign-in ended: start over
+      if (res.status === 403) return show("denied");
+      $("dash-status").className = "status err";
+      $("dash-status").textContent = "Couldn't load the numbers (" + res.status + "). Try Refresh.";
+    } catch (e) {
+      console.error(e);
+      $("dash-status").className = "status err";
+      $("dash-status").textContent = "Couldn't reach the server. Try Refresh.";
+    } finally {
+      $("dash-refresh").disabled = false;
+    }
+  }
+
   // Works out what to show from the current sign-in and admin-api's answer.
   async function route() {
     show("loading");
@@ -78,7 +172,8 @@
       const code = res.body && res.body.error && res.body.error.code;
       if (res.status === 200 && res.body.admin === true) {
         $("who").textContent = String(res.body.email || res.body.userId || "");
-        return show("panel");
+        show("panel");
+        return await loadDashboard();
       }
       if (res.status === 401) {
         await db.auth.signOut({ scope: "local" });
@@ -195,6 +290,7 @@
   });
 
   $("retry").addEventListener("click", () => route());
+  $("dash-refresh").addEventListener("click", () => loadDashboard());
 
   // The email link signs in through the URL (route() waits for that); tidy it away once read.
   db.auth.onAuthStateChange((event) => {
