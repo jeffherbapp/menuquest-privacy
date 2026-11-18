@@ -420,6 +420,8 @@
     for (const b of document.querySelectorAll(".tab")) b.setAttribute("aria-pressed", String(b.dataset.tab === name));
     $("tab-overview").hidden = name !== "overview";
     $("tab-menus").hidden = name !== "menus";
+    $("tab-tests").hidden = name !== "tests";
+    if (name === "tests" && !gate.loaded) loadGate();
     try { sessionStorage.setItem("menuquest-admin-tab", name); } catch (_) { /* fine */ }
     if (name === "menus" && !$("lib-items").childElementCount && !lib.place) loadLibrary();
   }
@@ -795,6 +797,322 @@
     libChange("set_menu_hidden", { menuId: version.id, hidden, confirm: true }, hidden ? "Hidden." : "Restored.");
   }
 
+
+  // MARK: Quality-gate tests (A9a). Read-only.
+
+  const gate = { runs: [], picked: [], places: [], place: null, data: null, onlyDiffs: false, showTags: false, hidden: new Set(), loaded: false };
+  const METRICS = [
+    ["recall", "recall", "Dishes found"], ["precision", "precision", "Dishes that are real"], ["priceExact", "price_exact", "Prices exact"],
+    ["section", "section", "Right section"], ["dishType", "dish_type", "Dish type"], ["protein", "protein", "Protein"],
+    ["spice", "spice", "Spice"], ["cuisine", "cuisine", "Cuisine"], ["methods", "methods", "Methods"],
+    ["flavors", "flavors", "Flavors"], ["ingredients", "ingredients", "Ingredients"], ["validJson", "valid_json", "Valid answers"],
+  ];
+
+  /** A short letter per run: S for the Studio, H Haiku, L Flash-Lite, F Flash, else the model's first letter. */
+  function runLabels(runs) {
+    const labels = new Map();
+    const used = new Map();
+    for (const r of runs) {
+      const m = String(r.model_name || "").toLowerCase();
+      let l = r.executor === "mac" ? "S" : m.includes("haiku") ? "H" : m.includes("flash-lite") ? "L" : m.includes("flash") ? "F"
+        : (m.replace(/[^a-z]/g, "")[0] || "?").toUpperCase();
+      used.set(l, (used.get(l) || 0) + 1);
+      labels.set(r.id, l);
+    }
+    for (const r of runs) if (used.get(labels.get(r.id)) > 1) labels.set(r.id, labels.get(r.id) + r.id);
+    return labels;
+  }
+  const runById = (id) => gate.runs.find((r) => r.id === id);
+  // Letters for the picked runs (S, H, L, F); runs not picked fall back to their letter among all runs.
+  const label = (id) => {
+    const picked = runLabels(gate.picked.map(runById).filter(Boolean));
+    return picked.get(id) || (gate.labels && gate.labels.get(id)) || "#" + id;
+  };
+  const pct = (v) => (typeof v === "number" || (typeof v === "string" && v !== "")) && isFinite(Number(v)) ? (Number(v) * 100).toFixed(1) + "%" : "–";
+  const sec = (v) => (v === null || v === undefined || v === "" ? "–" : Number(v).toFixed(1) + " s");
+
+  function gateSay(text, isError) {
+    $("gate-status").className = "status" + (isError ? " err" : "");
+    $("gate-status").textContent = text || "";
+  }
+
+  async function loadGate() {
+    gate.loaded = true;
+    gateSay("Loading runs…");
+    try {
+      const res = await callApi("gate_runs");
+      if (res.status === 401) return route();
+      if (res.status === 403) return show("denied");
+      if (res.status !== 200) return gateSay("Couldn't load the runs (" + res.status + ").", true);
+      gate.runs = Array.isArray(res.body) ? res.body : [];
+      gate.labels = runLabels(gate.runs);
+      // Start with the newest run, the run whose menus it reused, and every run that reused them.
+      const newest = gate.runs[0];
+      if (newest) {
+        const root = newest.source_run || newest.id;
+        gate.picked = gate.runs.filter((r) => r.id === root || r.source_run === root).map((r) => r.id).sort((a, b) => a - b).slice(0, 8);
+      }
+      renderPicker();
+      await loadPlaces();
+    } catch (e) {
+      console.error(e);
+      gateSay("Couldn't reach the server.", true);
+    }
+  }
+
+  function renderPicker() {
+    $("gate-picked").textContent = gate.picked.length ? "· " + gate.picked.map((id) => label(id) + " #" + id).join(", ") : "";
+    $("gate-runs").replaceChildren(...gate.runs.map((r) => {
+      const row = el("label", "gate-run");
+      const box = el("input");
+      box.type = "checkbox";
+      box.checked = gate.picked.includes(r.id);
+      box.addEventListener("change", () => {
+        gate.picked = box.checked ? [...gate.picked, r.id].sort((a, b) => a - b) : gate.picked.filter((x) => x !== r.id);
+        renderPicker();
+        if (gate.picked.length >= 2 && gate.picked.length <= 8) loadPlaces();
+        else gateSay("Pick 2 to 8 runs.", true);
+      });
+      row.append(box,
+        el("strong", null, label(r.id) + " #" + r.id),
+        el("span", null, " " + (r.model_name || "?") + " · " + (r.executor === "mac" ? "Mac Studio" : "cloud") + " · " + (r.prompt_version || "") +
+          (r.source_run ? " · menus of #" + r.source_run : "") + " · " + day(r.created_at)),
+        document.createTextNode(" "), badge(r.passed ? "passed" : "didn't pass", r.passed ? "on" : "off"));
+      return row;
+    }));
+  }
+
+  async function loadPlaces() {
+    renderSummary();
+    gateSay("Loading restaurants…");
+    try {
+      const res = await callApi("gate_places", { runs: gate.picked });
+      if (res.status === 401) return route();
+      if (res.status !== 200) {
+        const m = res.body && res.body.error && res.body.error.message;
+        return gateSay(m || "Couldn't load restaurants (" + res.status + ").", true);
+      }
+      gate.places = Array.isArray(res.body) ? res.body : [];
+      gateSay("");
+      renderPlaces();
+      const keep = gate.places.find((p) => p.place_id === gate.place) || gate.places[0];
+      if (keep) await loadGateMenu(keep.place_id);
+      else { $("gate-menu").replaceChildren(el("p", "muted", "No restaurants in these runs.")); $("gate-controls").hidden = true; }
+    } catch (e) {
+      console.error(e);
+      gateSay("Couldn't reach the server.", true);
+    }
+  }
+
+  function renderSummary() {
+    const runs = gate.picked.map(runById).filter(Boolean);
+    if (runs.length < 2) return $("gate-summary").replaceChildren();
+    const t = el("table", "periods gate-summary");
+    const head = el("tr");
+    head.append(el("th", null, ""), el("th", "muted", "Pass mark"));
+    for (const r of runs) {
+      const th = el("th", null, label(r.id) + " #" + r.id);
+      th.title = r.model_name || "";
+      head.append(th);
+    }
+    const thead = el("thead");
+    thead.append(head);
+    const tbody = el("tbody");
+    const marks = (runs[0] && runs[0].thresholds) || {};
+    const row = (name, mark, cells) => {
+      const tr = el("tr");
+      tr.append(el("th", null, name), el("td", "muted", mark));
+      for (const c of cells) tr.append(c);
+      tbody.append(tr);
+    };
+    row("Model", "", runs.map((r) => el("td", "small-print", r.model_name || "–")));
+    row("Passed", "", runs.map((r) => el("td", r.passed ? "good" : "bad", r.passed ? "yes" : "no")));
+    for (const [camel, snake, name] of METRICS) {
+      const mark = marks[camel];
+      row(name, mark !== undefined ? "≥ " + pct(mark) : "", runs.map((r) => {
+        const v = r.summary ? r.summary[snake] : undefined;
+        const td = el("td", null, pct(v));
+        const t2 = (r.thresholds || {})[camel];
+        if (v !== undefined && v !== null && t2 !== undefined && Number(v) < Number(t2)) td.className = "bad";
+        return td;
+      }));
+    }
+    const s = (r, k) => (r.summary ? r.summary[k] : undefined);
+    row("Menus done", "", runs.map((r) => el("td", null, num(s(r, "menus_done")))));
+    row("Broken answers", "", runs.map((r) => el("td", Number(s(r, "broken")) > 0 ? "bad" : null, num(s(r, "broken")))));
+    row("Seconds per menu", "", runs.map((r) => el("td", null, sec(s(r, "avg_seconds")))));
+    row("Run cost", "", runs.map((r) => el("td", null, usd(s(r, "run_usd")))));
+    row("Per 1,000 menus", "", runs.map((r) => el("td", null, usd(s(r, "usd_per_1000")))));
+    row("…at the later price", "", runs.map((r) => el("td", "muted", s(r, "usd_per_1000_later_price") == null ? "–" : usd(s(r, "usd_per_1000_later_price")))));
+    row("…batch estimate", "", runs.map((r) => el("td", "muted", s(r, "usd_per_1000_batch_est") == null ? "–" : usd(s(r, "usd_per_1000_batch_est")))));
+    row("Claude per 1,000 (batch / standard)", "", runs.map((r) => el("td", "muted",
+      s(r, "claude_usd_per_1000_batch") == null ? "–" : usd(s(r, "claude_usd_per_1000_batch")) + " / " + usd(s(r, "claude_usd_per_1000_standard")))));
+    t.append(thead, tbody);
+    $("gate-summary").replaceChildren(t);
+  }
+
+  function renderPlaces() {
+    const sel = $("gate-place-select");
+    sel.replaceChildren(...gate.places.map((p) => {
+      const o = el("option", null, p.name + " (" + num(p.claude_dishes) + ")");
+      o.value = p.place_id;
+      return o;
+    }));
+    sel.value = gate.place || (gate.places[0] && gate.places[0].place_id) || "";
+    $("gate-places").replaceChildren(...gate.places.map((p) => {
+      const li = el("li");
+      const b = el("button", "gate-place" + (p.place_id === gate.place ? " active" : ""));
+      b.type = "button";
+      b.append(el("span", "gate-place-name", p.name));
+      const counts = el("span", "gate-place-counts");
+      counts.append(el("span", "count claude", "C " + num(p.claude_dishes)));
+      for (const id of gate.picked) {
+        const r = p.runs && p.runs[String(id)];
+        if (!r) continue;
+        const txt = label(id) + " " + (r.status === "invalid" ? "✕" : num(r.dishes));
+        counts.append(el("span", "count" + (r.status === "invalid" ? " bad" : "") + (r.left_out ? " faded" : ""), txt));
+      }
+      b.append(counts);
+      b.addEventListener("click", () => loadGateMenu(p.place_id));
+      li.append(b);
+      return li;
+    }));
+  }
+
+  async function loadGateMenu(place) {
+    gate.place = place;
+    for (const b of document.querySelectorAll(".gate-place")) b.classList.remove("active");
+    renderPlaces();
+    $("gate-menu").replaceChildren(el("p", "status", "Loading…"));
+    try {
+      const res = await callApi("gate_menu", { placeId: place, runs: gate.picked });
+      if (res.status === 401) return route();
+      if (res.status !== 200) {
+        const m = res.body && res.body.error && res.body.error.message;
+        return $("gate-menu").replaceChildren(el("p", "status err", m || "Couldn't load that menu (" + res.status + ")."));
+      }
+      gate.data = res.body;
+      renderGateMenu();
+    } catch (e) {
+      console.error(e);
+      $("gate-menu").replaceChildren(el("p", "status err", "Couldn't reach the server."));
+    }
+  }
+
+  function renderControls() {
+    const c = $("gate-controls");
+    c.hidden = false;
+    const toggle = (text, on, flip) => {
+      const b = button(text, "chip", () => { flip(); renderGateMenu(); });
+      b.setAttribute("aria-pressed", String(on));
+      return b;
+    };
+    const chips = [
+      toggle("Only differences", gate.onlyDiffs, () => { gate.onlyDiffs = !gate.onlyDiffs; }),
+      toggle("Show tags", gate.showTags, () => { gate.showTags = !gate.showTags; }),
+    ];
+    for (const id of gate.picked) {
+      chips.push(toggle(label(id) + " #" + id, !gate.hidden.has(id), () => {
+        if (gate.hidden.has(id)) gate.hidden.delete(id); else gate.hidden.add(id);
+      }));
+    }
+    const legend = el("p", "muted small-print gate-legend");
+    legend.append(el("span", "swatch extra", ""), document.createTextNode(" not on Claude's menu  "),
+      el("span", "swatch price", ""), document.createTextNode(" different price  "),
+      el("span", "swatch addon", ""), document.createTextNode(" add-on (not scored)"));
+    c.replaceChildren(el("div", "chips"), legend);
+    c.firstChild.append(...chips);
+  }
+
+  function tagLine(tags) {
+    if (!tags) return null;
+    const bits = [];
+    if (tags.dishType) bits.push(tags.dishType);
+    if (tags.protein && tags.protein !== "none") bits.push(tags.protein);
+    if (tags.spice && tags.spice !== "none") bits.push("spice: " + tags.spice);
+    if (Array.isArray(tags.flavors) && tags.flavors.length) bits.push(tags.flavors.join(", "));
+    if (Array.isArray(tags.ingredients) && tags.ingredients.length) bits.push(tags.ingredients.join(", "));
+    return bits.length ? el("p", "dish-tags", bits.join(" · ")) : null;
+  }
+
+  function dishNode(item, isClaude) {
+    const li = el("li", "dish" + (item.mark ? " " + item.mark : "") + (item.missedBy && item.missedBy.length ? " missed" : ""));
+    const top = el("div", "dish-top");
+    top.append(el("span", "dish-name", item.name || "(no name)"), el("span", "dish-price", item.price || ""));
+    li.append(top);
+    if (item.mark === "price") li.append(el("p", "dish-note", "Claude: " + (item.claudePrice || "no price")));
+    if (isClaude && item.missedBy && item.missedBy.length) {
+      li.append(el("p", "dish-note", "missed by " + item.missedBy.filter((id) => !gate.hidden.has(id)).map(label).join("/")));
+    }
+    if (item.description) li.append(el("p", "dish-desc", item.description));
+    if (gate.showTags) { const t = tagLine(item.tags); if (t) li.append(t); }
+    return li;
+  }
+
+  const interesting = (item, isClaude) => isClaude
+    ? !!(item.missedBy && item.missedBy.some((id) => !gate.hidden.has(id)))
+    : item.mark === "extra" || item.mark === "price";
+
+  function menuColumn(title, sub, notes, menu, isClaude) {
+    const col = el("section", "gate-col" + (isClaude ? " claude" : ""));
+    col.append(el("h3", null, title));
+    if (sub) col.append(el("p", "muted small-print", sub));
+    for (const n of notes) col.append(el("p", "gate-note", n));
+    if (!menu) return col;
+    let shown = 0;
+    for (const s of menu.sections || []) {
+      const items = (s.items || []).filter((i) => !gate.onlyDiffs || interesting(i, isClaude));
+      if (!items.length) continue;
+      col.append(el("h4", null, s.name || "Menu"));
+      const ul = el("ul", "dishes");
+      for (const i of items) ul.append(dishNode(i, isClaude));
+      col.append(ul);
+      shown += items.length;
+    }
+    if (gate.onlyDiffs && !shown) col.append(el("p", "muted", "No differences."));
+    if ((menu.deferredLists || []).length && !gate.onlyDiffs) {
+      col.append(el("h4", null, "Drink lists"));
+      const ul = el("ul", "dishes");
+      for (const d of menu.deferredLists) {
+        const li = el("li", "dish deferred");
+        li.append(el("span", "dish-name", d.name + (d.approxItems ? " (about " + d.approxItems + ")" : "")), el("span", "dish-note", "tap to add"));
+        ul.append(li);
+      }
+      col.append(ul);
+    }
+    return col;
+  }
+
+  function renderGateMenu() {
+    const d = gate.data;
+    if (!d) return;
+    renderControls();
+    const head = el("div", "gate-head");
+    head.append(el("h2", null, d.name || d.place_id));
+    const cols = el("div", "gate-cols");
+    const many = (d.references || []).length > 1;
+    (d.references || []).forEach((ref, i) => {
+      const runs = ref.runs.filter((id) => !gate.hidden.has(id));
+      if (!runs.length && many) return;
+      cols.append(menuColumn("Claude" + (many ? " (for " + ref.runs.map((id) => label(id) + " #" + id).join(", ") + ")" : ""),
+        num(ref.dishes) + " dishes as scored", ref.menu ? [] : ["Claude couldn't read this menu (" + (ref.status || "no read") + ")."], ref.menu, true));
+    });
+    for (const r of d.reads || []) {
+      if (gate.hidden.has(r.run_id)) continue;
+      const run = runById(r.run_id) || {};
+      const notes = [];
+      if (r.status === "invalid" || (!r.menu && r.invalid)) notes.push("Broken answer: " + (r.invalid || "not valid"));
+      else if (!r.menu) notes.push("No read (" + r.status + ").");
+      if (r.left_out) notes.push("Left out of the score: Claude's read looked cut short.");
+      if (r.earlier_rules) notes.push("Scored with earlier rules; these marks use today's.");
+      if (r.unmarked) notes.push("No marks: " + r.unmarked);
+      if (many) notes.push("Compared with Claude's read for " + (d.references[r.reference].runs.map((id) => label(id) + " #" + id).join(", ")) + ".");
+      cols.append(menuColumn(label(r.run_id) + " #" + r.run_id + " · " + (run.model_name || ""),
+        num(r.dishes) + " dishes · " + sec(r.seconds) + (r.cost_usd != null ? " · " + usd(r.cost_usd) : ""), notes, r.menu, false));
+    }
+    $("gate-menu").replaceChildren(head, cols);
+  }
+
   // Works out what to show from the current sign-in and admin-api's answer.
   async function route() {
     show("loading");
@@ -808,7 +1126,7 @@
         $("who").textContent = String(res.body.email || res.body.userId || "");
         show("panel");
         let tab = "overview";
-        try { tab = sessionStorage.getItem("menuquest-admin-tab") === "menus" ? "menus" : "overview"; } catch (_) { /* fine */ }
+        try { tab = ["menus", "tests"].includes(sessionStorage.getItem("menuquest-admin-tab")) ? sessionStorage.getItem("menuquest-admin-tab") : "overview"; } catch (_) { /* fine */ }
         showTab(tab);
         await loadCosts();
         return await loadDashboard();
@@ -935,6 +1253,7 @@
     if (lib.query) lib.filter = "all";
     loadLibrary();
   });
+  $("gate-place-select").addEventListener("change", (e) => loadGateMenu(e.target.value));
   $("dash-refresh").addEventListener("click", async () => {
     await loadCosts();
     await loadDashboard();

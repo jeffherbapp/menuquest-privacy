@@ -14,7 +14,7 @@
 <meta name="theme-color" content="#171311" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="/assets/favicon.png">
 <link rel="stylesheet" href="/assets/site.css?v=3">
-<link rel="stylesheet" href="/admin/admin.css?v=5">
+<link rel="stylesheet" href="/admin/admin.css?v=6">
 </head>
 <body>
 <header class="site-header">
@@ -103,6 +103,7 @@
     <nav class="tabs" aria-label="Admin sections">
       <button type="button" class="tab" data-tab="overview" aria-pressed="true">Overview</button>
       <button type="button" class="tab" data-tab="menus" aria-pressed="false">Menus</button>
+      <button type="button" class="tab" data-tab="tests" aria-pressed="false">Tests</button>
     </nav>
 
     <div id="tab-overview">
@@ -129,10 +130,32 @@
       </div>
       <div id="lib-detail" hidden></div>
     </div>
+
+    <!-- A9a: quality-gate runs compared (read-only). -->
+    <div id="tab-tests" hidden>
+      <details id="gate-picker" class="card gate-picker" open>
+        <summary>Runs <span id="gate-picked" class="muted"></span></summary>
+        <p class="muted">Pick 2 to 8 runs. Claude's read is the reference for each.</p>
+        <div id="gate-runs" class="gate-runs"></div>
+      </details>
+      <p class="status" id="gate-status" role="status"></p>
+      <div id="gate-summary" class="table-scroll"></div>
+      <div class="gate-body">
+        <aside class="gate-places">
+          <label for="gate-place-select" class="visually-hidden">Restaurant</label>
+          <select id="gate-place-select"></select>
+          <ul id="gate-places" class="gate-place-list"></ul>
+        </aside>
+        <section class="gate-main">
+          <div id="gate-controls" class="gate-controls" hidden></div>
+          <div id="gate-menu"></div>
+        </section>
+      </div>
+    </div>
   </section>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous"></script>
-<script src="/admin/admin.js?v=5"></script>
+<script src="/admin/admin.js?v=6"></script>
 </body>
 </html>

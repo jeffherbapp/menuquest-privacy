@@ -128,3 +128,61 @@
 .chip.attention { border-color: var(--accent); color: var(--accent); }
 .chip.attention[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
 .review-card { border-color: var(--accent); }
+
+/* Quality-gate tests (A9a): the app's menu look */
+.gate-picker summary { cursor: pointer; font-weight: 600; }
+.gate-picker { max-width: none !important; }
+.gate-runs { display: grid; gap: 6px; }
+.gate-run { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
+.gate-run input { width: 18px; height: 18px; accent-color: var(--accent); }
+.gate-summary { min-width: 520px; margin: 8px 0 16px; }
+.gate-summary td.bad { color: var(--accent); font-weight: 700; }
+.gate-summary td.good { color: var(--tried); font-weight: 700; }
+.gate-body { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 16px; align-items: start; }
+.gate-places select { display: none; width: 100%; font: inherit; padding: 10px; border-radius: 12px; border: 1px solid var(--rule); background: var(--card); color: var(--ink); }
+.gate-place-list { list-style: none; margin: 0; padding: 0; max-height: 75vh; overflow-y: auto; position: sticky; top: 8px; }
+.gate-place { width: 100%; text-align: left; font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--rule);
+              border-radius: 12px; padding: 8px 10px; margin: 0 0 6px; cursor: pointer; }
+.gate-place.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.gate-place-name { display: block; font-weight: 600; font-size: 14px; }
+.gate-place-counts { display: flex; flex-wrap: wrap; gap: 4px 8px; font: 12px ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink-soft); }
+.gate-place-counts .claude { color: var(--ink); font-weight: 700; }
+.gate-place-counts .bad { color: var(--accent); }
+.gate-place-counts .faded { opacity: 0.5; }
+.gate-controls .chips { margin: 0 0 6px; }
+.gate-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin: 0 0 10px; }
+.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-left: 6px; }
+.swatch.extra { background: color-mix(in srgb, var(--gold) 45%, transparent); }
+.swatch.price { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+.swatch.addon { background: var(--rule); }
+.gate-head h2 { font-size: 24px; margin: 0 0 10px; overflow-wrap: anywhere; }
+.gate-main { min-width: 0; }
+.gate-cols { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; align-items: flex-start; }
+.gate-col { flex: 0 0 300px; background: var(--card); border: 1px solid var(--rule); border-radius: 16px; padding: 14px; }
+.gate-col.claude { border: 2px solid var(--ink); }
+.gate-col h3 { font: 700 17px/1.2 var(--serif); margin: 0 0 2px; }
+.gate-col h4 { font: 700 12px/1 var(--serif); letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-soft);
+               margin: 14px 0 6px; padding-bottom: 6px; border-bottom: 1px solid var(--rule); }
+.gate-note { font-size: 13px; color: var(--accent); margin: 6px 0 0; }
+.dishes { list-style: none; margin: 0; padding: 0; }
+.dish { padding: 6px 8px; border-radius: 8px; margin: 2px -8px; }
+.dish-top { display: flex; justify-content: space-between; gap: 8px; }
+.dish-name { font-weight: 600; font-size: 14px; }
+.dish-price { font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dish-desc { font-size: 13px; color: var(--ink-soft); margin: 2px 0 0; line-height: 1.35; }
+.dish-note { font-size: 12px; font-weight: 600; margin: 2px 0 0; }
+.dish-tags { font-size: 12px; color: var(--ink-soft); margin: 2px 0 0; font-style: italic; }
+.dish.extra { background: color-mix(in srgb, var(--gold) 22%, transparent); }
+.dish.price { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.dish.price .dish-note, .dish.missed .dish-note { color: var(--accent); }
+.dish.addon { opacity: 0.45; }
+.dish.missed { box-shadow: inset 3px 0 0 var(--accent); }
+.dish.deferred { display: flex; justify-content: space-between; color: var(--ink-soft); }
+.dish.deferred .dish-note { color: var(--accent); }
+
+@media (max-width: 760px) {
+  .gate-body { grid-template-columns: minmax(0, 1fr); }
+  .gate-places select { display: block; }
+  .gate-place-list { display: none; }
+  .gate-col { flex-basis: 86%; }
+}
