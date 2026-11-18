@@ -190,7 +190,7 @@
 /* Background (A8a) */
 .tabs { overflow-x: auto; }
 .tab { white-space: nowrap; }
-.caps-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-top: 8px; }
+.card form.caps-form { display: flex; flex-direction: row; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-top: 8px; }
 .cap-field { display: grid; gap: 4px; font-size: 14px; font-weight: 600; }
 .cap-field input { font: inherit; width: 130px; color: var(--ink); background: var(--paper); border: 1px solid var(--rule); border-radius: 12px; padding: 10px 12px; }
 .costs-card h3 { font-size: 16px; margin: 14px 0 6px; }
@@ -223,3 +223,12 @@
   #trip-detail .button.small { width: 100%; }
 }
 .trip-spot .link-form, .trip-candidates .link-form { grid-template-columns: 1fr auto; margin-top: 6px; }
+
+/* Mac Studio card (A9b) */
+.cap-field select { font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--rule); border-radius: 12px; padding: 10px 12px; }
+.cap-field input[type="time"] { width: 120px; }
+@media (max-width: 520px) {
+  .card form.caps-form { display: grid; grid-template-columns: 1fr 1fr; align-items: end; }
+  .card form.caps-form .cap-field input, .card form.caps-form .cap-field select { width: 100%; }
+  .card form.caps-form .button.small { grid-column: 1 / -1; }
+}

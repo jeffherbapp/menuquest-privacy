@@ -1120,7 +1120,7 @@
 
   // MARK: Background (A8a): seeding and the Studio's free work, caps, seed areas, queue.
 
-  const bg = { data: null, loaded: false, seed: null };
+  const bg = { data: null, loaded: false, seed: null, studio: null };
 
   function bgSay(text, isError) {
     $("bg-status").className = "status" + (isError ? " err" : "");
@@ -1131,11 +1131,12 @@
     bg.loaded = true;
     bgSay("Loading…");
     try {
-      const res = await callApi("background");
-      if (res.status === 401) return route();
-      if (res.status === 403) return show("denied");
+      const [res, studio] = await Promise.all([callApi("background"), callApi("studio")]);
+      if (res.status === 401 || studio.status === 401) return route();
+      if (res.status === 403 || studio.status === 403) return show("denied");
       if (res.status !== 200) return bgSay("Couldn't load background work (" + res.status + ").", true);
       bg.data = res.body;
+      bg.studio = studio.status === 200 ? studio.body : null;
       bgSay("");
       renderBackground();
     } catch (e) {
@@ -1194,6 +1195,9 @@
       () => bgChange("set_studio_free", { on: !freeOn }, freeOn ? "The Studio's free work is off." : "The Studio's free work is on."),
     ));
     parts.push(s);
+
+    // A9b: the Mac Studio
+    if (bg.studio) parts.push(studioCard(bg.studio));
 
     // Caps
     const c = el("section", "card costs-card");
@@ -1328,6 +1332,97 @@
     parts.push(q);
 
     $("bg-body").replaceChildren(...parts);
+  }
+
+  // A9b: the Mac Studio card.
+  const ZONES = ["America/Chicago", "America/New_York", "America/Denver", "America/Los_Angeles", "America/Phoenix", "UTC"];
+
+  function studioCard(st) {
+    const card = el("section", "card costs-card");
+    card.append(el("h2", null, "Mac Studio"));
+    const workers = st.workers || [];
+    if (!workers.length) {
+      card.append(el("p", "muted", "No Studio is registered."));
+      return card;
+    }
+    for (const w of workers) {
+      const head = el("div", "switch-head");
+      head.append(el("strong", null, w.name),
+        badge(!w.enabled ? "Off" : w.quiet && w.quiet.now ? "Quiet hours" : w.online ? "Online" : "Offline", w.enabled && w.online && !(w.quiet && w.quiet.now) ? "on" : "off"));
+      card.append(head);
+      card.append(el("p", "muted", (w.model || "?") + " · runtime " + (w.runtime || "?") + " · " + (w.device || "") +
+        " · last seen " + (w.last_seen_at ? when(w.last_seen_at) : "never") + " · may do: " + (w.kinds || []).join(", ")));
+      if ((w.running || []).length) {
+        card.append(el("p", null, "Working on: " + w.running.map((j) => j.reason + " " + j.kind + " since " + when(j.since)).join("; ")));
+      }
+      const row = el("div", "button-row");
+      row.append(button(w.enabled ? "Turn the Studio off" : "Turn the Studio on", "button small" + (w.enabled ? " quiet" : ""), () =>
+        bgChange("set_studio_enabled", { workerId: w.id, enabled: !w.enabled }, w.enabled ? "The Studio is off: it takes no work." : "The Studio is on.")));
+      card.append(row);
+
+      // Quiet hours
+      const q = w.quiet || {};
+      card.append(el("h3", null, "Quiet hours"));
+      card.append(el("p", "muted", q.start
+        ? "Every day " + q.start + "–" + q.end + " (" + q.tz + "): the Studio gets no work. A job it already has finishes."
+        : "None. The Studio can take work any time."));
+      const form = el("form", "caps-form");
+      const time = (labelText, value) => {
+        const wrap = el("label", "cap-field");
+        const input = el("input");
+        input.type = "time"; input.value = value || ""; input.step = "300";
+        wrap.append(el("span", null, labelText), input);
+        return { wrap, input };
+      };
+      const start = time("From", q.start);
+      const end = time("To", q.end);
+      const zoneWrap = el("label", "cap-field");
+      const zone = el("select");
+      const zones = ZONES.includes(q.tz) || !q.tz ? ZONES : [q.tz, ...ZONES];
+      for (const z of zones) {
+        const o = el("option", null, z.replace("America/", "").replace("_", " "));
+        o.value = z;
+        zone.append(o);
+      }
+      zone.value = q.tz || "America/Chicago";
+      zoneWrap.append(el("span", null, "Time zone"), zone);
+      const save = el("button", "button small", "Save");
+      save.type = "submit";
+      form.append(start.wrap, end.wrap, zoneWrap, save);
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const a = start.input.value.slice(0, 5);
+        const b = end.input.value.slice(0, 5);
+        if (!a || !b) return bgSay("Pick both a start and an end, or use \"No quiet hours\".", true);
+        if (a === b) return bgSay("The start and end need to be different.", true);
+        bgChange("set_quiet_hours", { workerId: w.id, start: a, end: b, tz: zone.value }, "Quiet hours saved.");
+      });
+      card.append(form);
+      if (q.start) {
+        card.append(button("No quiet hours", null, () =>
+          bgChange("set_quiet_hours", { workerId: w.id, start: null, end: null, tz: q.tz || "America/Chicago" }, "Quiet hours removed.")));
+      }
+    }
+
+    // Recent work
+    const r = st.recent || {};
+    card.append(el("h3", null, "Recent work"));
+    const t = el("table", "periods");
+    const head = el("tr");
+    for (const h of ["", "Done", "Failed", "Avg time"]) head.append(el("th", null, h));
+    const thead = el("thead");
+    thead.append(head);
+    const tbody = el("tbody");
+    for (const [label, d] of [["24 hours", r.d1], ["7 days", r.d7]]) {
+      const tr = el("tr");
+      tr.append(el("th", null, label), el("td", null, num(d && d.done)), el("td", d && d.failed > 0 ? "bad" : null, num(d && d.failed)),
+        el("td", null, d && d.avg_seconds != null ? Math.round(Number(d.avg_seconds)) + " s" : "–"));
+      tbody.append(tr);
+    }
+    t.append(thead, tbody);
+    card.append(t, el("p", "muted", num(r.waiting) + " waiting · last finished " + (r.last_finished_at ? when(r.last_finished_at) : "never") +
+      ". Average time is what the Studio reports per job (quality-test reads take longest)."));
+    return card;
   }
 
   // A8b: estimate, then run.
