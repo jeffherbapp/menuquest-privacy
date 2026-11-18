@@ -51,3 +51,32 @@
   .admin:has(#panel:not([hidden])) { max-width: 1040px; }
   .dash { grid-template-columns: 1fr 1fr; }
 }
+
+/* Spending and switches (A5) */
+.costs-card h2 { font-size: 20px; margin: 0 0 8px; }
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 14px;
+              padding: 12px 0; border-bottom: 1px solid var(--rule); }
+.switch-text { min-width: 0; }
+.switch-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.switch-detail { font-size: 14px; color: var(--ink-soft); margin: 4px 0 0; line-height: 1.4; }
+.pill { font: 600 12px/1 var(--sans); padding: 5px 9px; border-radius: 999px; letter-spacing: 0.02em; }
+.pill.on { background: color-mix(in srgb, var(--tried) 18%, transparent); color: var(--tried); }
+.pill.off { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.card .button.small { width: auto; flex: none; font-size: 15px; padding: 11px 16px; }
+.card .button.quiet { background: transparent; color: var(--ink); border: 1px solid var(--rule); }
+.caps { display: grid; gap: 12px; margin: 16px 0 0; }
+.meter-label { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; }
+.meter-value { font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+.meter-bar { height: 8px; border-radius: 999px; background: var(--paper); border: 1px solid var(--rule); overflow: hidden; margin-top: 4px; }
+.meter-fill { height: 100%; background: var(--tried); border-radius: 999px; }
+.meter-fill.hot { background: var(--accent); }
+.costs-card .note { font-size: 13px; color: var(--ink-soft); margin: 10px 0 0; }
+.table-scroll { overflow-x: auto; margin-top: 14px; }
+.periods.money { min-width: 460px; }
+.periods tr.total th, .periods tr.total td { font-weight: 700; border-top: 2px solid var(--rule); }
+.link-button.inline { padding: 0; font-size: 13px; }
+
+@media (max-width: 520px) {
+  .switch-row { flex-direction: column; align-items: stretch; }
+  .card .button.small { width: 100%; }
+}

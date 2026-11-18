@@ -161,6 +161,219 @@
     }
   }
 
+
+  // MARK: Spending and switches (A5)
+
+  const usd = (v) => {
+    const n = Number(v);
+    if (!isFinite(n)) return "–";
+    if (n > 0 && n < 0.005) return "<$0.01";
+    return "$" + n.toFixed(2);
+  };
+  const sum = (o, keys) => keys.reduce((t, k) => t + (Number(o && o[k]) || 0), 0);
+  const USER_KEYS = ["user_claude", "user_google", "est_scans", "est_tagging", "est_searches"];
+  let costs = null;
+
+  function meter(label, spent, cap) {
+    const wrap = el("div", "meter");
+    const pct = cap > 0 ? Math.min(100, (spent / cap) * 100) : 0;
+    const line = el("div", "meter-label");
+    line.append(el("span", null, label), el("span", "meter-value", usd(spent) + " of " + usd(cap)));
+    const bar = el("div", "meter-bar");
+    const fill = el("div", "meter-fill" + (pct >= 90 ? " hot" : ""));
+    fill.style.width = pct.toFixed(1) + "%";
+    bar.append(fill);
+    bar.setAttribute("role", "img");
+    bar.setAttribute("aria-label", label + ": " + usd(spent) + " of " + usd(cap));
+    wrap.append(line, bar);
+    return wrap;
+  }
+
+  function switchRow(title, detail, on, onLabel, offLabel, buttonText, action) {
+    const row = el("div", "switch-row");
+    const text = el("div", "switch-text");
+    const head = el("div", "switch-head");
+    head.append(el("strong", null, title), el("span", "pill " + (on ? "on" : "off"), on ? onLabel : offLabel));
+    text.append(head, el("p", "switch-detail", detail));
+    const button = el("button", "button small" + (on ? " quiet" : ""), buttonText);
+    button.type = "button";
+    button.addEventListener("click", action);
+    row.append(text, button);
+    return row;
+  }
+
+  function renderCosts(c) {
+    costs = c;
+    const sw = c.switches || {};
+    const caps = c.caps || {};
+    const per = c.periods || {};
+    const queued = c.queued || {};
+
+    const card = el("section", "card costs-card");
+    card.append(el("h2", null, "Spending"));
+
+    // Switches
+    const paused = sw.paid_paused === true;
+    card.append(switchRow(
+      "All paid lookups",
+      paused
+        ? "Paused" + (sw.paid_paused_at ? " since " + new Date(sw.paid_paused_at).toLocaleString() : "") +
+          ". Testers see “Menu lookups are paused”. Saved menus still work."
+        : "Restaurant search, website menus, photo scans and dish tagging for testers, plus background work.",
+      !paused, "Running", "Paused", paused ? "Resume…" : "Pause all…",
+      () => paused ? resumePaid() : pausePaid(),
+    ));
+    const bgOn = sw.background_on === true;
+    card.append(switchRow(
+      "Background work",
+      "Prefetch, seeding and nightly re-reads. Limited by the caps below." +
+        (queued.background ? " " + queued.background + " job" + (queued.background === 1 ? "" : "s") + " waiting." : ""),
+      bgOn, "On", "Off", bgOn ? "Turn off" : "Turn on…",
+      () => bgOn ? setBackground(false) : turnOnBackground(),
+    ));
+
+    // Caps
+    const capBox = el("div", "caps");
+    capBox.append(
+      meter("Background today", caps.today_usd, Number(caps.daily_usd)),
+      meter("Background this month", caps.month_usd, Number(caps.monthly_usd)),
+    );
+    card.append(capBox, el("p", "note",
+      "The caps count background work and quality tests, not testers' own adds. Over a cap, background work waits for the next UTC day or month."));
+
+    // Table
+    const cols = [["today", "Today"], ["d7", "7 days"], ["month", "This month"], ["last_month", "Last month"]];
+    const rows = [
+      ["Testers: website menus (Claude)", ["user_claude"]],
+      ["Testers: website menus (Google)", ["user_google"]],
+      ["Testers: photo scans (est.)", ["est_scans"]],
+      ["Testers: dish tagging (est.)", ["est_tagging"]],
+      ["Testers: restaurant search (est.)", ["est_searches"]],
+      ["Background (Claude)", ["background_claude"]],
+      ["Background (Google)", ["background_google"]],
+      ["Quality tests (Claude)", ["tests_claude"]],
+      ["Quality tests (Google)", ["tests_google"]],
+    ];
+    const allKeys = rows.flatMap((r) => r[1]);
+    const table = el("table", "periods money");
+    const thead = el("thead");
+    const head = el("tr");
+    for (const h of ["", ...cols.map((c2) => c2[1])]) head.append(el("th", null, h));
+    thead.append(head);
+    const tbody = el("tbody");
+    for (const [label, keys] of rows) {
+      const tr = el("tr");
+      tr.append(el("th", null, label));
+      for (const [k] of cols) tr.append(el("td", null, usd(sum(per[k], keys))));
+      tbody.append(tr);
+    }
+    const total = el("tr", "total");
+    total.append(el("th", null, "Claude and Google"));
+    for (const [k] of cols) total.append(el("td", null, usd(sum(per[k], allKeys))));
+    tbody.append(total);
+    const supa = el("tr");
+    const supaHead = el("th", null, "Supabase (fixed) ");
+    const edit = el("button", "link-button inline", "Edit");
+    edit.type = "button";
+    edit.addEventListener("click", editSupabasePrice);
+    supaHead.append(edit);
+    supa.append(supaHead, el("td", null, ""), el("td", null, ""), el("td", null, usd(c.supabase_monthly_usd)), el("td", null, usd(c.supabase_monthly_usd)));
+    tbody.append(supa);
+    table.append(thead, tbody);
+    const scroller = el("div", "table-scroll");
+    scroller.append(table);
+    card.append(scroller, el("p", "note",
+      "Claude and Google rows come from the cost log. “est.” rows are estimated from token counts and request counts at list prices. Days and months are UTC."));
+
+    $("costs").replaceChildren(card);
+  }
+
+  async function loadCosts() {
+    try {
+      const res = await callApi("costs");
+      if (res.status === 200) return renderCosts(res.body);
+      if (res.status === 401) return route();
+      if (res.status === 403) return show("denied");
+      $("costs").replaceChildren(el("p", "status err", "Couldn't load spending (" + res.status + "). Try Refresh."));
+    } catch (e) {
+      console.error(e);
+      $("costs").replaceChildren(el("p", "status err", "Couldn't reach the server for spending. Try Refresh."));
+    }
+  }
+
+  /** Sends a switch change; shows the server's refusal if any; reloads the numbers. */
+  async function change(route_, body) {
+    $("dash-status").className = "status";
+    $("dash-status").textContent = "Saving…";
+    try {
+      const res = await callApi(route_, body);
+      if (res.status === 401) return route();
+      if (res.status !== 200) {
+        const m = res.body && res.body.error && res.body.error.message;
+        $("dash-status").className = "status err";
+        $("dash-status").textContent = m || "That didn't work (" + res.status + ").";
+        return;
+      }
+      $("dash-status").textContent = "Saved.";
+    } catch (e) {
+      console.error(e);
+      $("dash-status").className = "status err";
+      $("dash-status").textContent = "Couldn't reach the server. Nothing changed.";
+      return;
+    }
+    await loadCosts();
+  }
+
+  function turnOnBackground() {
+    const c = costs || {};
+    const caps = c.caps || {};
+    const left = (cap, spent) => usd(Math.max(0, Number(cap) - Number(spent)));
+    const ok = window.confirm(
+      "Turn background work on?\n\n" +
+      "It can spend up to the caps: " + usd(caps.daily_usd) + " a day and " + usd(caps.monthly_usd) + " a month.\n" +
+      "Already counted: " + usd(caps.today_usd) + " today, " + usd(caps.month_usd) + " this month.\n" +
+      "So at most " + left(caps.daily_usd, caps.today_usd) + " more today and " + left(caps.monthly_usd, caps.month_usd) + " more this month.\n" +
+      ((c.queued && c.queued.background) ? c.queued.background + " background jobs are waiting." : "No background jobs are waiting right now."));
+    if (ok) change("set_background", { on: true, confirm: true });
+  }
+
+  function setBackground(on) {
+    change("set_background", { on });
+  }
+
+  function pausePaid() {
+    const ok = window.confirm(
+      "Pause all paid lookups?\n\n" +
+      "Testers can't search restaurants, look up website menus, scan photos or tag dishes until you resume. " +
+      "They'll see “Menu lookups are paused”. Saved menus keep working.\n\n" +
+      "Background work turns off too.");
+    if (ok) change("set_paid_pause", { paused: true });
+  }
+
+  function resumePaid() {
+    const per = (costs && costs.periods) || {};
+    const week = sum(per.d7, USER_KEYS);
+    const ok = window.confirm(
+      "Resume paid lookups?\n\n" +
+      "Testers' lookups cost about " + usd(week) + " in the last 7 days (about " + usd(week / 7) + " a day). " +
+      "Each tester also has daily limits.\n\n" +
+      "Background work stays off; turn it on separately.");
+    if (ok) change("set_paid_pause", { paused: false, confirm: true });
+  }
+
+  function editSupabasePrice() {
+    const now = costs ? Number(costs.supabase_monthly_usd) : 25;
+    const answer = window.prompt("Supabase plan price per month, in US dollars:", String(now));
+    if (answer === null) return;
+    const value = Number(String(answer).replace(/[$,\s]/g, ""));
+    if (!isFinite(value) || value < 0 || value > 10000) {
+      $("dash-status").className = "status err";
+      $("dash-status").textContent = "Enter a number from 0 to 10,000.";
+      return;
+    }
+    change("set_supabase_price", { usd: value });
+  }
+
   // Works out what to show from the current sign-in and admin-api's answer.
   async function route() {
     show("loading");
@@ -173,6 +386,7 @@
       if (res.status === 200 && res.body.admin === true) {
         $("who").textContent = String(res.body.email || res.body.userId || "");
         show("panel");
+        await loadCosts();
         return await loadDashboard();
       }
       if (res.status === 401) {
@@ -290,7 +504,10 @@
   });
 
   $("retry").addEventListener("click", () => route());
-  $("dash-refresh").addEventListener("click", () => loadDashboard());
+  $("dash-refresh").addEventListener("click", async () => {
+    await loadCosts();
+    await loadDashboard();
+  });
 
   // The email link signs in through the URL (route() waits for that); tidy it away once read.
   db.auth.onAuthStateChange((event) => {
