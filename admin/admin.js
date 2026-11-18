@@ -421,6 +421,8 @@
     $("tab-overview").hidden = name !== "overview";
     $("tab-menus").hidden = name !== "menus";
     $("tab-tests").hidden = name !== "tests";
+    $("tab-background").hidden = name !== "background";
+    if (name === "background" && !bg.loaded) loadBackground();
     if (name === "tests" && !gate.loaded) loadGate();
     try { sessionStorage.setItem("menuquest-admin-tab", name); } catch (_) { /* fine */ }
     if (name === "menus" && !$("lib-items").childElementCount && !lib.place) loadLibrary();
@@ -1113,6 +1115,228 @@
     $("gate-menu").replaceChildren(head, cols);
   }
 
+
+  // MARK: Background (A8a): seeding and the Studio's free work, caps, seed areas, queue.
+
+  const bg = { data: null, loaded: false };
+
+  function bgSay(text, isError) {
+    $("bg-status").className = "status" + (isError ? " err" : "");
+    $("bg-status").textContent = text || "";
+  }
+
+  async function loadBackground() {
+    bg.loaded = true;
+    bgSay("Loading…");
+    try {
+      const res = await callApi("background");
+      if (res.status === 401) return route();
+      if (res.status === 403) return show("denied");
+      if (res.status !== 200) return bgSay("Couldn't load background work (" + res.status + ").", true);
+      bg.data = res.body;
+      bgSay("");
+      renderBackground();
+    } catch (e) {
+      console.error(e);
+      bgSay("Couldn't reach the server.", true);
+    }
+  }
+
+  /** Sends a change, shows a refusal plainly, reloads. */
+  async function bgChange(routeName, body, okText) {
+    bgSay("Saving…");
+    try {
+      const res = await callApi(routeName, body);
+      if (res.status === 401) return route();
+      if (res.status !== 200) {
+        const m = res.body && res.body.error && res.body.error.message;
+        return bgSay(m || "That didn't work (" + res.status + ").", true);
+      }
+      await loadBackground();
+      bgSay(okText || "Saved.");
+    } catch (e) {
+      console.error(e);
+      bgSay("Couldn't reach the server. Nothing changed.", true);
+    }
+  }
+
+  function renderBackground() {
+    const d = bg.data || {};
+    const sw = d.switches || {};
+    const caps = d.caps || {};
+    const studio = (d.studio || [])[0];
+    const parts = [];
+
+    // Switches
+    const s = el("section", "card costs-card");
+    s.append(el("h2", null, "Switches"));
+    const bgLine = el("p", "muted", "Background work is " + (sw.background_on ? "on" : "off") +
+      (sw.paid_paused ? " and all paid lookups are paused" : "") + ". Change those on Overview.");
+    s.append(bgLine);
+    const seedingOn = sw.seeding_on === true;
+    s.append(switchRow(
+      "Seeding",
+      "Google searches for new places in your seed areas ($0.032 a search), and a Google website lookup when one isn't known. " +
+        "Needs background work on too" + (seedingOn && !sw.background_on ? ": it's off, so seeding is waiting." : "."),
+      seedingOn, "On", "Off", seedingOn ? "Turn off" : "Turn on…",
+      () => seedingOn ? bgChange("set_seeding", { on: false }, "Seeding is off.") : turnOnSeeding(),
+    ));
+    const freeOn = sw.studio_free_on === true;
+    const seen = studio && studio.last_seen_at ? "last seen " + when(studio.last_seen_at) : "not seen yet";
+    s.append(switchRow(
+      "Mac Studio (free)",
+      "The Studio finds menu links for places whose website is already known, with no paid calls, even with everything else off. " +
+        (studio ? studio.name + " · " + (studio.model || "?") + " · " + seen + (studio.enabled ? "" : " · switched off") : "No Studio registered.") +
+        " · " + num(d.waiting_free) + " free job" + (d.waiting_free === 1 ? "" : "s") + " waiting.",
+      freeOn, "On", "Off", freeOn ? "Turn off" : "Turn on",
+      () => bgChange("set_studio_free", { on: !freeOn }, freeOn ? "The Studio's free work is off." : "The Studio's free work is on."),
+    ));
+    parts.push(s);
+
+    // Caps
+    const c = el("section", "card costs-card");
+    c.append(el("h2", null, "Spending caps"));
+    c.append(el("p", "muted", "Background work, seeding and quality tests stop at these (UTC days and months). Testers' own adds don't count. " +
+      "So far: " + usd(caps.today_usd) + " today, " + usd(caps.month_usd) + " this month."));
+    const form = el("form", "caps-form");
+    const field = (labelText, value) => {
+      const wrap = el("label", "cap-field");
+      const input = el("input");
+      input.type = "number"; input.min = "0"; input.step = "0.5"; input.value = String(Number(value) || 0); input.inputMode = "decimal";
+      wrap.append(el("span", null, labelText), input);
+      return { wrap, input };
+    };
+    const daily = field("Per day ($)", caps.daily_usd);
+    const monthly = field("Per month ($)", caps.monthly_usd);
+    const save = el("button", "button small", "Save caps");
+    save.type = "submit";
+    form.append(daily.wrap, monthly.wrap, save);
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const dv = Number(daily.input.value);
+      const mv = Number(monthly.input.value);
+      if (!isFinite(dv) || !isFinite(mv) || dv < 0 || mv < 0) return bgSay("Enter amounts of $0 or more.", true);
+      const raising = dv > Number(caps.daily_usd) || mv > Number(caps.monthly_usd);
+      if (raising && !window.confirm("Raise the caps?\n\nBackground work, seeding and quality tests could then spend up to " +
+        usd(dv) + " a day and " + usd(mv) + " a month (now " + usd(caps.daily_usd) + " and " + usd(caps.monthly_usd) + ").")) return;
+      bgChange("set_caps", raising ? { daily: dv, monthly: mv, confirm: true } : { daily: dv, monthly: mv }, "Caps saved.");
+    });
+    c.append(form);
+    parts.push(c);
+
+    // Seeding
+    const sd = el("section", "card costs-card");
+    const seeding = d.seeding || {};
+    sd.append(el("h2", null, "Seed areas"));
+    const totals = el("p", "muted", num(seeding.seeded_total) + " of " + num(seeding.target_total) + " places seeded overall. ");
+    totals.append(button("Change the overall target", null, () => {
+      const v = window.prompt("Most places to seed overall:", String(seeding.target_total || 0));
+      if (v === null) return;
+      const n = Number(v);
+      if (!Number.isInteger(n) || n < 0) return bgSay("Enter a whole number.", true);
+      bgChange("set_seed_total", { total: n }, "Overall target saved.");
+    }));
+    sd.append(totals);
+    const t = el("table", "periods money");
+    const head = el("tr");
+    for (const h of ["Area", "Target", "Seeded", "With links", "Last run", ""]) head.append(el("th", null, h));
+    const thead = el("thead");
+    thead.append(head);
+    const tbody = el("tbody");
+    for (const a of seeding.areas || []) {
+      const tr = el("tr", a.active ? null : "faded-row");
+      tr.append(el("th", null, a.label + (a.active ? "" : " (off)")), el("td", null, num(a.target)), el("td", null, num(a.seeded)),
+        el("td", null, num(a.with_links)), el("td", null, a.last_run_at ? day(a.last_run_at) : "–"));
+      const actions = el("td");
+      actions.append(
+        button("Target", null, () => {
+          const v = window.prompt("Places to seed in " + a.label + ":", String(a.target));
+          if (v === null) return;
+          const n = Number(v);
+          if (!Number.isInteger(n) || n < 1) return bgSay("Enter a whole number of 1 or more.", true);
+          bgChange("save_seed_area", { id: a.id, label: a.label, target: n, active: a.active }, "Area saved.");
+        }),
+        document.createTextNode(" · "),
+        button(a.active ? "Turn off" : "Turn on", null, () =>
+          bgChange("save_seed_area", { id: a.id, label: a.label, target: a.target, active: !a.active }, a.active ? "Area off." : "Area on.")),
+      );
+      tr.append(actions);
+      tbody.append(tr);
+    }
+    t.append(thead, tbody);
+    const scroller = el("div", "table-scroll");
+    scroller.append(t);
+    sd.append(scroller);
+    const add = el("form", "link-form");
+    const label = el("input");
+    label.type = "text"; label.placeholder = "Area, e.g. Wheaton, IL"; label.maxLength = 120; label.required = true; label.setAttribute("aria-label", "Area");
+    const target = el("input");
+    target.type = "number"; target.min = "1"; target.value = "40"; target.setAttribute("aria-label", "Target places");
+    const addBtn = el("button", "button small", "Add area");
+    addBtn.type = "submit";
+    add.append(label, target, addBtn);
+    add.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const n = Number(target.value);
+      if (label.value.trim().length < 2) return bgSay("Name the area, for example \"Wheaton, IL\".", true);
+      if (!Number.isInteger(n) || n < 1) return bgSay("The target must be a whole number of 1 or more.", true);
+      bgChange("save_seed_area", { label: label.value.trim(), target: n, active: true }, "Area added.");
+    });
+    sd.append(el("p", "muted", "Adding an area spends nothing. A seeding run searches it (soon from here; for now by hand)."), add);
+    parts.push(sd);
+
+    // Queue
+    const q = el("section", "card costs-card");
+    q.append(el("h2", null, "Queue"));
+    const qt = el("table", "periods money");
+    const qh = el("tr");
+    for (const h of ["Reason", "Kind", "Where", "Status", "Jobs"]) qh.append(el("th", null, h));
+    const qthead = el("thead");
+    qthead.append(qh);
+    const qbody = el("tbody");
+    for (const r of d.queue || []) {
+      const tr = el("tr");
+      tr.append(el("th", null, r.reason), el("td", null, r.kind), el("td", null, r.executor === "mac" ? "Studio" : "cloud"),
+        el("td", (r.status === "failed" || r.status === "dead") ? "bad" : null, r.status), el("td", null, num(r.count)));
+      qbody.append(tr);
+    }
+    if (!qbody.childElementCount) {
+      const tr = el("tr");
+      tr.append(el("td", "muted", "No jobs."));
+      qbody.append(tr);
+    }
+    qt.append(qthead, qbody);
+    const qs = el("div", "table-scroll");
+    qs.append(qt);
+    q.append(qs);
+    const fails = d.failures || [];
+    q.append(el("h3", null, "Recent problems"));
+    if (!fails.length) q.append(el("p", "muted", "None."));
+    else {
+      const ul = el("ul", "plain-list");
+      for (const f of fails) {
+        ul.append(el("li", null, when(f.at) + " · " + f.reason + " " + f.kind + " · " + f.status + " after " + f.attempts +
+          " tr" + (f.attempts === 1 ? "y" : "ies") + (f.error ? " · " + f.error : "")));
+      }
+      q.append(ul);
+    }
+    parts.push(q);
+
+    $("bg-body").replaceChildren(...parts);
+  }
+
+  function turnOnSeeding() {
+    const d = bg.data || {};
+    const caps = d.caps || {};
+    const sw = d.switches || {};
+    const ok = window.confirm("Turn seeding on?\n\n" +
+      "Seeding searches Google for new places ($0.032 a search) and looks up websites it can't find elsewhere ($0.02 each). " +
+      "It counts against the caps: " + usd(caps.daily_usd) + " a day, " + usd(caps.monthly_usd) + " a month " +
+      "(" + usd(caps.today_usd) + " and " + usd(caps.month_usd) + " counted so far)." +
+      (sw.background_on ? "" : "\n\nBackground work is off, so nothing will run until it's on."));
+    if (ok) bgChange("set_seeding", { on: true, confirm: true }, "Seeding is on.");
+  }
+
   // Works out what to show from the current sign-in and admin-api's answer.
   async function route() {
     show("loading");
@@ -1126,7 +1350,7 @@
         $("who").textContent = String(res.body.email || res.body.userId || "");
         show("panel");
         let tab = "overview";
-        try { tab = ["menus", "tests"].includes(sessionStorage.getItem("menuquest-admin-tab")) ? sessionStorage.getItem("menuquest-admin-tab") : "overview"; } catch (_) { /* fine */ }
+        try { tab = ["menus", "tests", "background"].includes(sessionStorage.getItem("menuquest-admin-tab")) ? sessionStorage.getItem("menuquest-admin-tab") : "overview"; } catch (_) { /* fine */ }
         showTab(tab);
         await loadCosts();
         return await loadDashboard();
@@ -1254,6 +1478,7 @@
     loadLibrary();
   });
   $("gate-place-select").addEventListener("change", (e) => loadGateMenu(e.target.value));
+  $("bg-refresh").addEventListener("click", () => loadBackground());
   $("dash-refresh").addEventListener("click", async () => {
     await loadCosts();
     await loadDashboard();

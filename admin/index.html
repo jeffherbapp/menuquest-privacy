@@ -14,7 +14,7 @@
 <meta name="theme-color" content="#171311" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="/assets/favicon.png">
 <link rel="stylesheet" href="/assets/site.css?v=3">
-<link rel="stylesheet" href="/admin/admin.css?v=6">
+<link rel="stylesheet" href="/admin/admin.css?v=7">
 </head>
 <body>
 <header class="site-header">
@@ -104,6 +104,7 @@
       <button type="button" class="tab" data-tab="overview" aria-pressed="true">Overview</button>
       <button type="button" class="tab" data-tab="menus" aria-pressed="false">Menus</button>
       <button type="button" class="tab" data-tab="tests" aria-pressed="false">Tests</button>
+      <button type="button" class="tab" data-tab="background" aria-pressed="false">Background</button>
     </nav>
 
     <div id="tab-overview">
@@ -131,6 +132,15 @@
       <div id="lib-detail" hidden></div>
     </div>
 
+    <!-- A8a: seeding, the Studio's free work, caps, seed areas, queue. -->
+    <div id="tab-background" hidden>
+      <div class="toolbar">
+        <p class="status" id="bg-status" role="status"></p>
+        <button type="button" class="link-button" id="bg-refresh">Refresh</button>
+      </div>
+      <div id="bg-body"></div>
+    </div>
+
     <!-- A9a: quality-gate runs compared (read-only). -->
     <div id="tab-tests" hidden>
       <details id="gate-picker" class="card gate-picker" open>
@@ -156,6 +166,6 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous"></script>
-<script src="/admin/admin.js?v=6"></script>
+<script src="/admin/admin.js?v=7"></script>
 </body>
 </html>
