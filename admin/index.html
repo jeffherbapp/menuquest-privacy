@@ -14,7 +14,7 @@
 <meta name="theme-color" content="#171311" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="/assets/favicon.png">
 <link rel="stylesheet" href="/assets/site.css?v=3">
-<link rel="stylesheet" href="/admin/admin.css?v=3">
+<link rel="stylesheet" href="/admin/admin.css?v=4">
 </head>
 <body>
 <header class="site-header">
@@ -100,18 +100,39 @@
   <section id="panel" hidden>
     <h1>MenuQuest admin</h1>
     <p class="signed-in">Signed in as <span id="who"></span></p>
-    <div class="toolbar">
-      <p class="status" id="dash-status" role="status"></p>
-      <button type="button" class="link-button" id="dash-refresh">Refresh</button>
+    <nav class="tabs" aria-label="Admin sections">
+      <button type="button" class="tab" data-tab="overview" aria-pressed="true">Overview</button>
+      <button type="button" class="tab" data-tab="menus" aria-pressed="false">Menus</button>
+    </nav>
+
+    <div id="tab-overview">
+      <div class="toolbar">
+        <p class="status" id="dash-status" role="status"></p>
+        <button type="button" class="link-button" id="dash-refresh">Refresh</button>
+      </div>
+      <!-- Filled by admin.js: A5 switches and spending, A4 dashboard. -->
+      <div id="costs"></div>
+      <div id="dashboard" class="dash"></div>
     </div>
-    <!-- Filled by admin.js from admin-api's dashboard route. -->
-    <!-- A5: switches and spending. -->
-    <div id="costs"></div>
-    <div id="dashboard" class="dash"></div>
+
+    <!-- A6: the menu library. -->
+    <div id="tab-menus" hidden>
+      <div id="lib-list">
+        <form id="lib-search" class="lib-search" role="search">
+          <label for="lib-query" class="visually-hidden">Search restaurants</label>
+          <input id="lib-query" type="search" placeholder="Restaurant, website or place id" autocomplete="off">
+          <button class="button small" type="submit">Search</button>
+        </form>
+        <div id="lib-filters" class="chips" role="group" aria-label="Filter"></div>
+        <p class="status" id="lib-status" role="status"></p>
+        <ul id="lib-items" class="lib-items"></ul>
+      </div>
+      <div id="lib-detail" hidden></div>
+    </div>
   </section>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous"></script>
-<script src="/admin/admin.js?v=3"></script>
+<script src="/admin/admin.js?v=4"></script>
 </body>
 </html>

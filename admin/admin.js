@@ -374,6 +374,351 @@
     change("set_supabase_price", { usd: value });
   }
 
+
+  // MARK: Menu library (A6)
+
+  const lib = { filter: "flagged", query: "", place: null, menuId: null, data: null, preview: null };
+
+  const when = (iso) => (iso ? new Date(iso).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "–");
+  const day = (iso) => (iso ? new Date(iso).toLocaleDateString([], { dateStyle: "medium" }) : "–");
+
+  /** An outside link, only for http(s) addresses. Opens in a new tab without a referrer. */
+  function outLink(url, text) {
+    let ok = false;
+    try { ok = /^https?:$/.test(new URL(url).protocol); } catch (_) { /* not a URL */ }
+    if (!ok) return el("span", "muted", text || url || "");
+    const a = el("a", null, text || url);
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    return a;
+  }
+
+  function linkLine(url) {
+    const p = el("p", "muted small-print");
+    p.append(outLink(url, "Read from " + url));
+    return p;
+  }
+
+  function button(text, cls, onClick) {
+    const b = el("button", cls || "link-button inline", text);
+    b.type = "button";
+    b.addEventListener("click", onClick);
+    return b;
+  }
+
+  function badge(text, kind) {
+    return el("span", "pill " + (kind || "off"), text);
+  }
+
+  function libSay(text, isError) {
+    $("lib-status").className = "status" + (isError ? " err" : "");
+    $("lib-status").textContent = text || "";
+  }
+
+  function showTab(name) {
+    for (const b of document.querySelectorAll(".tab")) b.setAttribute("aria-pressed", String(b.dataset.tab === name));
+    $("tab-overview").hidden = name !== "overview";
+    $("tab-menus").hidden = name !== "menus";
+    try { sessionStorage.setItem("menuquest-admin-tab", name); } catch (_) { /* fine */ }
+    if (name === "menus" && !$("lib-items").childElementCount && !lib.place) loadLibrary();
+  }
+
+  async function loadLibrary() {
+    libSay("Loading…");
+    try {
+      const res = await callApi("library", { query: lib.query, filter: lib.filter, limit: 100 });
+      if (res.status === 401) return route();
+      if (res.status === 403) return show("denied");
+      if (res.status !== 200) return libSay("Couldn't load menus (" + res.status + ").", true);
+      renderLibrary(res.body);
+    } catch (e) {
+      console.error(e);
+      libSay("Couldn't reach the server.", true);
+    }
+  }
+
+  function renderLibrary(d) {
+    const counts = d.counts || {};
+    const filters = [["flagged", "Flagged"], ["short", "Short"], ["reported", "Reported"], ["hidden", "No menu"], ["all", "All"]];
+    $("lib-filters").replaceChildren(...filters.map(([key, label]) => {
+      const b = button(label + " " + num(counts[key]), "chip", () => { lib.filter = key; loadLibrary(); });
+      b.setAttribute("aria-pressed", String(lib.filter === key));
+      return b;
+    }));
+    const items = Array.isArray(d.items) ? d.items : [];
+    libSay(items.length ? "" : "Nothing here." + (lib.query ? " Try another search." : ""));
+    $("lib-items").replaceChildren(...items.map((it) => {
+      const li = el("li");
+      const row = el("button", "lib-row");
+      row.type = "button";
+      const top = el("span", "lib-name", it.name || it.place_id);
+      const tags = el("span", "lib-tags");
+      if (it.short) tags.append(badge("Short", "off"));
+      if (it.reports > 0) tags.append(badge(it.reports + " report" + (it.reports === 1 ? "" : "s"), "off"));
+      if (it.no_menu) tags.append(badge("No visible menu", "off"));
+      const meta = el("span", "lib-meta", it.no_menu
+        ? (it.versions + " hidden version" + (it.versions === 1 ? "" : "s"))
+        : num(it.item_count) + " dishes · " + (it.source === "scan" ? "photo scan" : "website") + " · " + day(it.saved_at) +
+          (it.versions > 1 ? " · " + it.versions + " versions" : "") + " · " + num(it.links) + " link" + (it.links === 1 ? "" : "s"));
+      row.append(top, tags, meta);
+      row.addEventListener("click", () => openMenu(it.place_id, null));
+      li.append(row);
+      return li;
+    }));
+  }
+
+  async function openMenu(place, menuId) {
+    lib.place = place;
+    lib.menuId = menuId;
+    $("lib-list").hidden = true;
+    $("lib-detail").hidden = false;
+    $("lib-detail").replaceChildren(el("p", "status", "Loading…"));
+    try {
+      const res = await callApi("menu", { placeId: place, menuId });
+      if (res.status === 401) return route();
+      if (res.status === 403) return show("denied");
+      if (res.status !== 200) {
+        const m = res.body && res.body.error && res.body.error.message;
+        return $("lib-detail").replaceChildren(backButton(), el("p", "status err", m || "Couldn't load that menu (" + res.status + ")."));
+      }
+      lib.data = res.body;
+      renderMenu();
+    } catch (e) {
+      console.error(e);
+      $("lib-detail").replaceChildren(backButton(), el("p", "status err", "Couldn't reach the server."));
+    }
+  }
+
+  function backButton() {
+    return button("← All menus", "link-button", () => {
+      lib.place = null;
+      lib.preview = null;
+      $("lib-detail").hidden = true;
+      $("lib-list").hidden = false;
+      loadLibrary();
+    });
+  }
+
+  function sectionsList(sections, limitPerSection) {
+    const box = el("div", "menu-sections");
+    for (const s of sections || []) {
+      const det = el("details");
+      const items = Array.isArray(s.items) ? s.items : [];
+      det.append(el("summary", null, (s.name || s.category || "Section") + " (" + items.length + ")"));
+      const ul = el("ul", "menu-items");
+      for (const it of items.slice(0, limitPerSection || 500)) {
+        const text = typeof it === "string" ? it : ((it && it.name) || "") + (it && it.price ? " · " + it.price : "");
+        ul.append(el("li", null, text));
+      }
+      det.append(ul);
+      box.append(det);
+    }
+    if (!box.childElementCount) box.append(el("p", "muted", "No sections."));
+    return box;
+  }
+
+  function renderMenu() {
+    const d = lib.data || {};
+    const shown = d.shown;
+    const box = $("lib-detail");
+    const parts = [backButton()];
+
+    const head = el("div", "detail-head");
+    head.append(el("h2", null, d.name || d.place_id));
+    const sub = el("p", "muted");
+    if (d.website) sub.append(outLink(d.website, d.website), document.createTextNode(" · "));
+    sub.append(document.createTextNode("place " + d.place_id));
+    head.append(sub);
+    parts.push(head);
+
+    // The menu being shown
+    const menuCard = el("section", "card");
+    if (shown) {
+      const title = el("h3", null, (shown.hidden ? "Hidden version: " : "Live menu: ") + num(shown.item_count) + " dishes");
+      menuCard.append(title, el("p", "muted",
+        (shown.source === "scan" ? "Photo scan" : "Website") + " · saved " + when(shown.created_at)));
+      if (shown.source_url) menuCard.append(linkLine(shown.source_url));
+      menuCard.append(sectionsList((shown.menu && shown.menu.sections) || []));
+      if (lib.menuId) menuCard.append(button("Back to the live menu", "link-button", () => openMenu(lib.place, null)));
+    } else {
+      menuCard.append(el("h3", null, "No visible menu"), el("p", "muted", "Every saved version is hidden, or none was saved."));
+    }
+    parts.push(menuCard);
+
+    // Re-read
+    const rr = el("section", "card");
+    rr.append(el("h3", null, "Read it again"));
+    const est = usd(d.reread_estimate_usd);
+    if (lib.preview) {
+      const p = lib.preview;
+      rr.append(el("p", null, "New read: " + num(p.newItems) + " dishes (live menu: " + num(p.liveItems) + "). Nothing is saved yet."));
+      if (p.sourceUrl) rr.append(linkLine(p.sourceUrl));
+      if (p.deferredLists && p.deferredLists.length) rr.append(el("p", "muted", "Lists left out: " + p.deferredLists.join(", ")));
+      rr.append(sectionsList(p.sections));
+      const row = el("div", "button-row");
+      row.append(button("Save as the live menu…", "button small", saveReread), button("Discard", "button small quiet", () => { lib.preview = null; renderMenu(); }));
+      rr.append(row);
+    } else if (d.pending_read) {
+      rr.append(el("p", null, "A re-read is waiting: " + num(d.pending_read.itemCount) + " dishes. Re-read again to see it before saving."));
+      rr.append(button("Re-read (about " + est + ")…", "button small", reread));
+    } else {
+      rr.append(el("p", "muted", "Reads the menu links below under today's rules and shows you the result. Nothing changes until you save it."));
+      rr.append(button("Re-read (about " + est + ")…", "button small", reread));
+    }
+    const rrStatus = el("p", "status", "");
+    rrStatus.id = "rr-status";
+    rrStatus.setAttribute("role", "status");
+    rr.append(rrStatus);
+    parts.push(rr);
+
+    // Links
+    const links = el("section", "card");
+    links.append(el("h3", null, "Menu links"));
+    const ul = el("ul", "plain-list");
+    for (const l of d.links || []) {
+      const li = el("li");
+      li.append(outLink(l.url, l.url));
+      const meta = el("span", "muted small-print", " " + [l.label, l.format, l.status, l.is_primary ? "primary" : null, l.discovered_by ? "by " + l.discovered_by : null]
+        .filter(Boolean).join(" · "));
+      li.append(meta);
+      if (l.status === "active") li.append(document.createTextNode(" "), button("Remove", null, () => removeLink(l)));
+      ul.append(li);
+    }
+    if (!ul.childElementCount) ul.append(el("li", "muted", "No links saved."));
+    links.append(ul);
+    const form = el("form", "link-form");
+    const url = el("input");
+    url.type = "url"; url.placeholder = "https://restaurant.example/menu"; url.required = true; url.setAttribute("aria-label", "Menu link");
+    const label = el("input");
+    label.type = "text"; label.placeholder = "Label (optional)"; label.maxLength = 60; label.setAttribute("aria-label", "Label");
+    const add = el("button", "button small", "Use this link");
+    add.type = "submit";
+    form.append(url, label, add);
+    form.addEventListener("submit", (e) => { e.preventDefault(); setLink(url.value, label.value); });
+    links.append(el("p", "muted", "Fixing a link changes where the next re-read looks. It doesn't change the live menu."), form);
+    parts.push(links);
+
+    // Versions
+    const vers = el("section", "card");
+    vers.append(el("h3", null, "Saved versions"));
+    const vl = el("ul", "plain-list");
+    for (const v of d.versions || []) {
+      const li = el("li");
+      li.append(el("span", null, day(v.created_at) + " · " + num(v.item_count) + " dishes · " + (v.source === "scan" ? "scan" : "website")));
+      if (v.hidden) li.append(document.createTextNode(" "), badge("hidden", "off"));
+      if (v.reports) li.append(document.createTextNode(" "), badge(v.reports + " report" + (v.reports === 1 ? "" : "s"), "off"));
+      li.append(document.createTextNode(" "), button("View", null, () => openMenu(lib.place, v.id)));
+      li.append(document.createTextNode(" "), button(v.hidden ? "Restore…" : "Hide…", null, () => setHidden(v, !v.hidden)));
+      vl.append(li);
+    }
+    vers.append(vl, el("p", "muted", "Testers get the newest visible version."));
+    parts.push(vers);
+
+    // Reports and last attempt
+    if ((d.reports || []).length || d.last_attempt) {
+      const more = el("section", "card");
+      if ((d.reports || []).length) {
+        more.append(el("h3", null, "Reports from testers"));
+        const rl = el("ul", "plain-list");
+        for (const r of d.reports) rl.append(el("li", null, day(r.created_at) + " · " + r.reason + (r.note ? ": “" + r.note + "”" : "")));
+        more.append(rl);
+      }
+      if (d.last_attempt) {
+        more.append(el("h3", null, "Last lookup"));
+        more.append(el("p", "muted", when(d.last_attempt.attempted_at) + " · " + (d.last_attempt.outcome || "") +
+          (d.last_attempt.detail ? " · " + d.last_attempt.detail : "")));
+      }
+      parts.push(more);
+    }
+
+    box.replaceChildren(...parts);
+  }
+
+  function rrSay(text, isError) {
+    const s = $("rr-status");
+    if (!s) return;
+    s.className = "status" + (isError ? " err" : "");
+    s.textContent = text || "";
+  }
+
+  /** Runs a library change; reloads the restaurant when it works. */
+  async function libChange(routeName, body, okText) {
+    rrSay("Saving…");
+    try {
+      const res = await callApi(routeName, body);
+      if (res.status === 401) return route();
+      if (res.status !== 200) {
+        const m = res.body && res.body.error && res.body.error.message;
+        rrSay(m || "That didn't work (" + res.status + ").", true);
+        return false;
+      }
+      await openMenu(lib.place, lib.menuId);
+      rrSay(okText || "Saved.");
+      return true;
+    } catch (e) {
+      console.error(e);
+      rrSay("Couldn't reach the server. Nothing changed.", true);
+      return false;
+    }
+  }
+
+  async function reread() {
+    const d = lib.data || {};
+    const ok = window.confirm("Read " + (d.name || "this menu") + " again?\n\n" +
+      "This asks Claude to read the menu pages: about " + usd(d.reread_estimate_usd) + ", counted with background spending.\n" +
+      "Nothing changes for testers until you save the result. It can take up to two minutes.");
+    if (!ok) return;
+    const buttons = $("lib-detail").querySelectorAll("button");
+    for (const b of buttons) b.disabled = true;
+    rrSay("Reading… this can take up to two minutes.");
+    try {
+      const res = await callApi("reread", { placeId: lib.place, confirm: true });
+      if (res.status === 401) return route();
+      if (res.status !== 200) {
+        const m = res.body && res.body.error && res.body.error.message;
+        for (const b of buttons) b.disabled = false;
+        return rrSay(m || "The re-read didn't work (" + res.status + ").", true);
+      }
+      lib.preview = res.body;
+      renderMenu();
+      rrSay("Here's the new read. Save it to make it live.");
+    } catch (e) {
+      console.error(e);
+      for (const b of buttons) b.disabled = false;
+      rrSay("Lost touch with the server. If the read finished, it's waiting: open this menu again.", true);
+    }
+  }
+
+  async function saveReread() {
+    const p = lib.preview || {};
+    const ok = window.confirm("Make this the live menu?\n\n" +
+      num(p.newItems) + " dishes replace " + num(p.liveItems) + " for every tester, from their next refresh or add.\n" +
+      "The current menu is kept: hide the new version to bring it back.");
+    if (!ok) return;
+    if (await libChange("save_reread", { placeId: lib.place, confirm: true }, "Saved. It's the live menu now.")) lib.preview = null;
+  }
+
+  function setLink(url, label) {
+    if (!/^https?:\/\/\S+$/i.test(String(url).trim())) return rrSay("Enter a full web address starting with http:// or https://.", true);
+    libChange("set_menu_link", { placeId: lib.place, url: String(url).trim(), label: String(label || "").trim() || null }, "Link saved. Re-read to use it.");
+  }
+
+  function removeLink(link) {
+    if (!window.confirm("Stop using this link?\n\n" + link.url)) return;
+    libChange("remove_menu_link", { sourceId: link.id }, "Link removed.");
+  }
+
+  function setHidden(version, hidden) {
+    const visibleOthers = (lib.data.versions || []).filter((v) => !v.hidden && v.id !== version.id).length;
+    const msg = hidden
+      ? "Hide this version (" + num(version.item_count) + " dishes)?\n\n" +
+        (visibleOthers ? "Testers will get the newest other visible version." : "It's the only visible version: testers will have no saved menu for this restaurant.")
+      : "Restore this version (" + num(version.item_count) + " dishes)?\n\nIf it's the newest visible one, testers get it.";
+    if (!window.confirm(msg)) return;
+    libChange("set_menu_hidden", { menuId: version.id, hidden, confirm: true }, hidden ? "Hidden." : "Restored.");
+  }
+
   // Works out what to show from the current sign-in and admin-api's answer.
   async function route() {
     show("loading");
@@ -386,6 +731,9 @@
       if (res.status === 200 && res.body.admin === true) {
         $("who").textContent = String(res.body.email || res.body.userId || "");
         show("panel");
+        let tab = "overview";
+        try { tab = sessionStorage.getItem("menuquest-admin-tab") === "menus" ? "menus" : "overview"; } catch (_) { /* fine */ }
+        showTab(tab);
         await loadCosts();
         return await loadDashboard();
       }
@@ -504,6 +852,13 @@
   });
 
   $("retry").addEventListener("click", () => route());
+  for (const b of document.querySelectorAll(".tab")) b.addEventListener("click", () => showTab(b.dataset.tab));
+  $("lib-search").addEventListener("submit", (e) => {
+    e.preventDefault();
+    lib.query = $("lib-query").value.trim().slice(0, 200);
+    if (lib.query) lib.filter = "all";
+    loadLibrary();
+  });
   $("dash-refresh").addEventListener("click", async () => {
     await loadCosts();
     await loadDashboard();
