@@ -1120,7 +1120,7 @@
 
   // MARK: Background (A8a): seeding and the Studio's free work, caps, seed areas, queue.
 
-  const bg = { data: null, loaded: false, seed: null, studio: null };
+  const bg = { data: null, loaded: false, seed: null, studio: null, checks: null };
 
   function bgSay(text, isError) {
     $("bg-status").className = "status" + (isError ? " err" : "");
@@ -1131,12 +1131,13 @@
     bg.loaded = true;
     bgSay("Loading…");
     try {
-      const [res, studio] = await Promise.all([callApi("background"), callApi("studio")]);
+      const [res, studio, checks] = await Promise.all([callApi("background"), callApi("studio"), callApi("checks")]);
       if (res.status === 401 || studio.status === 401) return route();
       if (res.status === 403 || studio.status === 403) return show("denied");
       if (res.status !== 200) return bgSay("Couldn't load background work (" + res.status + ").", true);
       bg.data = res.body;
       bg.studio = studio.status === 200 ? studio.body : null;
+      bg.checks = checks.status === 200 ? checks.body : null;
       bgSay("");
       renderBackground();
     } catch (e) {
@@ -1198,6 +1199,8 @@
 
     // A9b: the Mac Studio
     if (bg.studio) parts.push(studioCard(bg.studio));
+    // A10: nightly checks
+    if (bg.checks) parts.push(checksCard(bg.checks));
 
     // Caps
     const c = el("section", "card costs-card");
@@ -1332,6 +1335,70 @@
     parts.push(q);
 
     $("bg-body").replaceChildren(...parts);
+  }
+
+  // A10: the Nightly checks card.
+  function checksCard(c) {
+    const card = el("section", "card costs-card");
+    card.append(el("h2", null, "Nightly checks"));
+    const sw = c.switches || {};
+    const on = sw.checks_free_on === true;
+    card.append(switchRow(
+      "Nightly checks (free)",
+      "Each night at 3 am Central (09:00 UTC), saved menu links that are due are fetched and compared with the last copy: no Claude, no Google. " +
+        "If a menu changed, its re-read (Claude) still waits for background work" + (sw.background_on ? " (on)." : ", which is off."),
+      on || sw.background_on, on ? "On" : "On with background", "Off", on ? "Turn off" : "Turn on",
+      () => bgChange("set_checks_free", { on: !on }, on ? "Free nightly checks are off." : "Free nightly checks are on."),
+    ));
+    const links = c.links || {};
+    card.append(el("p", "muted", num(links.active) + " saved links · " + num(links.due) + " due now · " + num(links.changed) + " changed · " +
+      num(links.failing) + " failing · last checked " + (links.last_checked_at ? when(links.last_checked_at) : "never") +
+      " · next run " + (c.schedule && c.schedule.next_run ? when(c.schedule.next_run) : "–")));
+    const row = el("div", "button-row");
+    const can = on || sw.background_on;
+    const now = button("Check now", "button small" + (can ? "" : " quiet"), () => {
+      if (!can) return bgSay("Turn on free nightly checks first.", true);
+      bgChange("queue_checks", {}, "Checks queued: they run within a few minutes.");
+    });
+    row.append(now);
+    card.append(row);
+
+    const r = c.recent || {};
+    const t = el("table", "periods");
+    const head = el("tr");
+    for (const h of ["", "Runs", "Failed", "Links checked", "Changed"]) head.append(el("th", null, h));
+    const thead = el("thead");
+    thead.append(head);
+    const tbody = el("tbody");
+    for (const [label, d] of [["24 hours", r.d1], ["7 days", r.d7]]) {
+      const tr = el("tr");
+      tr.append(el("th", null, label), el("td", null, num(d && d.done)), el("td", d && d.failed > 0 ? "bad" : null, num(d && d.failed)),
+        el("td", null, num(d && d.links_checked)), el("td", null, num(d && d.links_changed)));
+      tbody.append(tr);
+    }
+    t.append(thead, tbody);
+    card.append(t);
+    const rr = c.rereads || {};
+    const rrLine = el("p", "muted", num(r.waiting) + " checks waiting · " + num(rr.waiting) + " re-reads waiting (paid; need background work) · " +
+      num(rr.done_d7) + " re-read this week · " + num(rr.for_review) + " set aside for review ");
+    if (rr.for_review > 0) {
+      rrLine.append(button("Review them", null, () => { lib.filter = "review"; showTab("menus"); loadLibrary(); }));
+    }
+    card.append(rrLine);
+
+    card.append(el("h3", null, "Recent changes"));
+    const changes = c.changes || [];
+    if (!changes.length) card.append(el("p", "muted", "None yet."));
+    else {
+      const ul = el("ul", "plain-list");
+      for (const ch of changes) {
+        const li = el("li");
+        li.append(el("strong", null, ch.name || ch.place_id), document.createTextNode(" · " + when(ch.changed_at) + " · "), outLink(ch.url, ch.url));
+        ul.append(li);
+      }
+      card.append(ul);
+    }
+    return card;
   }
 
   // A9b: the Mac Studio card.
