@@ -200,3 +200,26 @@
 /* Seeding run (A8b) */
 .seed-card { border: 1px solid var(--accent); border-radius: 14px; padding: 12px 14px; margin-top: 14px; background: var(--paper); }
 .seed-card h3 { margin-top: 0 !important; }
+
+/* Trips (Trip Mode T4) */
+#trip-detail .card { max-width: none; }
+#trip-detail .card h3 { font-size: 18px; margin: 0 0 6px; }
+#trip-detail .card > p { margin: 0 0 10px; }
+#trip-detail .button.small { width: auto; }
+.trip-spots { list-style: none; margin: 0; padding: 0; }
+.trip-spot { border-top: 1px solid var(--rule); padding: 12px 0; }
+.trip-spot:first-child { border-top: 0; }
+.trip-spot p { margin: 4px 0; font-size: 15px; }
+.trip-spot-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; overflow-wrap: anywhere; }
+.trip-candidates { background: var(--paper); border: 1px solid var(--rule); border-radius: 12px; padding: 10px 12px; margin-top: 10px; }
+.trip-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.trip-form input, .trip-form select, .trip-form textarea, .link-form select {
+  font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--rule); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+.trip-form textarea, .trip-form .button-row { grid-column: 1 / -1; }
+.trip-form > .button.small { justify-self: start; }
+
+@media (max-width: 600px) {
+  .trip-form { grid-template-columns: 1fr; }
+  #trip-detail .button.small { width: 100%; }
+}
+.trip-spot .link-form, .trip-candidates .link-form { grid-template-columns: 1fr auto; margin-top: 6px; }
