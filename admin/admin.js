@@ -1120,7 +1120,7 @@
 
   // MARK: Background (A8a): seeding and the Studio's free work, caps, seed areas, queue.
 
-  const bg = { data: null, loaded: false };
+  const bg = { data: null, loaded: false, seed: null };
 
   function bgSay(text, isError) {
     $("bg-status").className = "status" + (isError ? " err" : "");
@@ -1259,6 +1259,8 @@
           bgChange("save_seed_area", { id: a.id, label: a.label, target: n, active: a.active }, "Area saved.");
         }),
         document.createTextNode(" · "),
+        button("Seed…", null, () => seedEstimate(a.id)),
+        document.createTextNode(" · "),
         button(a.active ? "Turn off" : "Turn on", null, () =>
           bgChange("save_seed_area", { id: a.id, label: a.label, target: a.target, active: !a.active }, a.active ? "Area off." : "Area on.")),
       );
@@ -1284,7 +1286,8 @@
       if (!Number.isInteger(n) || n < 1) return bgSay("The target must be a whole number of 1 or more.", true);
       bgChange("save_seed_area", { label: label.value.trim(), target: n, active: true }, "Area added.");
     });
-    sd.append(el("p", "muted", "Adding an area spends nothing. A seeding run searches it (soon from here; for now by hand)."), add);
+    sd.append(el("p", "muted", "Adding an area spends nothing. \"Seed…\" shows what a run could cost before anything is spent."), add);
+    if (bg.seed) sd.append(seedCard());
     parts.push(sd);
 
     // Queue
@@ -1325,6 +1328,98 @@
     parts.push(q);
 
     $("bg-body").replaceChildren(...parts);
+  }
+
+  // A8b: estimate, then run.
+  async function seedEstimate(areaId) {
+    bgSay("Working out the estimate…");
+    try {
+      const res = await callApi("seed_estimate", { areaId });
+      if (res.status === 401) return route();
+      if (res.status !== 200) {
+        const m = res.body && res.body.error && res.body.error.message;
+        return bgSay(m || "Couldn't estimate (" + res.status + ").", true);
+      }
+      bg.seed = { estimate: res.body, report: null };
+      bgSay("");
+      renderBackground();
+      const card = document.querySelector(".seed-card");
+      if (card) card.scrollIntoView({ block: "nearest" });
+    } catch (e) {
+      console.error(e);
+      bgSay("Couldn't reach the server.", true);
+    }
+  }
+
+  function seedCard() {
+    const e = bg.seed.estimate;
+    const r = bg.seed.report;
+    const card = el("div", "seed-card");
+    card.append(el("h3", null, "Seed " + e.area.label));
+    if (r) {
+      const lines = [
+        num(r.newPlaces) + " new places found (" + num(r.searched) + " seen, " + num(r.inArea) + " in the area)",
+        num(r.queued) + " queued for the Studio to find their menus",
+        "OpenStreetMap gave " + num(r.osm && r.osm.match) + " a website, so no Google lookup is needed for those",
+        num(r.googleRequests) + " Google searches · " + usd(r.googleUsd),
+      ];
+      if (r.stoppedBy) lines.push("Stopped early: " + r.stoppedBy.replace("_", " "));
+      if (r.osmError) lines.push("OpenStreetMap didn't answer: " + r.osmError);
+      if (r.skipped) lines.push("Skipped: " + r.skipped);
+      const ul = el("ul", "plain-list");
+      for (const l of lines) ul.append(el("li", null, l));
+      card.append(el("p", null, "Done."), ul);
+      card.append(button("Close", "button small quiet", () => { bg.seed = null; renderBackground(); }));
+      return card;
+    }
+    const ul = el("ul", "plain-list");
+    ul.append(
+      el("li", null, "Room: " + num(e.room) + " more places here (" + num(e.seeded_here) + " of " + num(e.area.target) + "), " +
+        num(e.seeded_total) + " of " + num(e.target_total) + " overall"),
+      el("li", null, "At most " + num(e.max_searches) + " Google searches × $" + Number(e.per_search_usd || 0).toFixed(3) + " = " + usd(e.max_search_usd) +
+        " now, stopping at the caps (" + usd(e.left_today_usd) + " left today, " + usd(e.left_month_usd) + " this month)"),
+      el("li", null, "Later, at most " + usd(e.later_lookup_usd) + " for Google website lookups, only for places OpenStreetMap can't give a website (with background work on)"),
+    );
+    card.append(ul);
+    const blockers = e.blocker_text || [];
+    if (blockers.length) {
+      for (const b of blockers) card.append(el("p", "status err", b));
+    }
+    const row = el("div", "button-row");
+    const run = button("Run now…", "button small", () => seedRun());
+    run.disabled = blockers.length > 0;
+    row.append(run, button("Cancel", "button small quiet", () => { bg.seed = null; renderBackground(); }));
+    card.append(row);
+    return card;
+  }
+
+  async function seedRun() {
+    const e = bg.seed && bg.seed.estimate;
+    if (!e) return;
+    const ok = window.confirm("Seed " + e.area.label + " now?\n\n" +
+      "Up to " + num(e.max_searches) + " Google searches, at most " + usd(e.max_search_usd) + ", stopping at the caps. " +
+      "New places go to the Studio to find their menu links. This can take a minute.");
+    if (!ok) return;
+    for (const b of document.querySelectorAll(".seed-card button")) b.disabled = true;
+    bgSay("Seeding " + e.area.label + "… this can take a minute.");
+    try {
+      const res = await callApi("seed_run", { areaId: e.area.id, confirm: true });
+      if (res.status === 401) return route();
+      if (res.status !== 200) {
+        const m = res.body && res.body.error && res.body.error.message;
+        for (const b of document.querySelectorAll(".seed-card button")) b.disabled = false;
+        return bgSay(m || "The run didn't work (" + res.status + ").", true);
+      }
+      const report = res.body;
+      await loadBackground();
+      bg.seed = { estimate: e, report };
+      renderBackground();
+      bgSay("Seeding finished.");
+    } catch (err) {
+      console.error(err);
+      for (const b of document.querySelectorAll(".seed-card button")) b.disabled = false;
+      bgSay("Lost touch with the server. Refresh to see whether the run finished.", true);
+    }
   }
 
   function turnOnSeeding() {
