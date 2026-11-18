@@ -377,7 +377,7 @@
 
   // MARK: Menu library (A6)
 
-  const lib = { filter: "flagged", query: "", place: null, menuId: null, data: null, preview: null };
+  const lib = { filter: "flagged", query: "", place: null, menuId: null, data: null, preview: null, review: null, reviewCount: 0 };
 
   const when = (iso) => (iso ? new Date(iso).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "–");
   const day = (iso) => (iso ? new Date(iso).toLocaleDateString([], { dateStyle: "medium" }) : "–");
@@ -427,25 +427,30 @@
   async function loadLibrary() {
     libSay("Loading…");
     try {
-      const res = await callApi("library", { query: lib.query, filter: lib.filter, limit: 100 });
-      if (res.status === 401) return route();
-      if (res.status === 403) return show("denied");
+      const [res, queue] = await Promise.all([
+        callApi("library", { query: lib.query, filter: lib.filter === "review" ? "all" : lib.filter, limit: 100 }),
+        callApi("review_queue"),
+      ]);
+      if (res.status === 401 || queue.status === 401) return route();
+      if (res.status === 403 || queue.status === 403) return show("denied");
       if (res.status !== 200) return libSay("Couldn't load menus (" + res.status + ").", true);
-      renderLibrary(res.body);
+      lib.reviewCount = queue.status === 200 ? Number(queue.body.count) || 0 : 0;
+      renderLibrary(res.body, queue.status === 200 ? queue.body : null);
     } catch (e) {
       console.error(e);
       libSay("Couldn't reach the server.", true);
     }
   }
 
-  function renderLibrary(d) {
-    const counts = d.counts || {};
-    const filters = [["flagged", "Flagged"], ["short", "Short"], ["reported", "Reported"], ["hidden", "No menu"], ["all", "All"]];
+  function renderLibrary(d, queue) {
+    const counts = Object.assign({}, d.counts || {}, { review: lib.reviewCount });
+    const filters = [["review", "Review"], ["flagged", "Flagged"], ["short", "Short"], ["reported", "Reported"], ["hidden", "No menu"], ["all", "All"]];
     $("lib-filters").replaceChildren(...filters.map(([key, label]) => {
-      const b = button(label + " " + num(counts[key]), "chip", () => { lib.filter = key; loadLibrary(); });
+      const b = button(label + " " + num(counts[key]), "chip" + (key === "review" && counts.review > 0 ? " attention" : ""), () => { lib.filter = key; loadLibrary(); });
       b.setAttribute("aria-pressed", String(lib.filter === key));
       return b;
     }));
+    if (lib.filter === "review") return renderQueue(queue);
     const items = Array.isArray(d.items) ? d.items : [];
     libSay(items.length ? "" : "Nothing here." + (lib.query ? " Try another search." : ""));
     $("lib-items").replaceChildren(...items.map((it) => {
@@ -466,6 +471,75 @@
       li.append(row);
       return li;
     }));
+  }
+
+  function renderQueue(queue) {
+    const items = (queue && Array.isArray(queue.items)) ? queue.items : [];
+    libSay(queue ? (items.length ? "Background re-reads that found far fewer dishes than the live menu. The live menu stays until you approve." : "Nothing waiting for review.") : "Couldn't load the review queue.", !queue);
+    $("lib-items").replaceChildren(...items.map((it) => {
+      const li = el("li");
+      const row = el("button", "lib-row");
+      row.type = "button";
+      const tags = el("span", "lib-tags");
+      tags.append(badge(num(it.new_count) + " vs " + num(it.live_count) + " dishes", "off"));
+      row.append(el("span", "lib-name", it.name || it.place_id), tags,
+        el("span", "lib-meta", "Re-read " + when(it.created_at) + (it.model ? " · " + it.model : "")));
+      row.addEventListener("click", () => { lib.review = it; openMenu(it.place_id, it.menu_id || null); });
+      li.append(row);
+      return li;
+    }));
+  }
+
+  function reviewCard() {
+    const it = lib.review;
+    const card = el("section", "card review-card");
+    card.append(el("h3", null, "Waiting for your review"));
+    card.append(el("p", null, "A background re-read found " + num(it.new_count) + " dishes; the live menu has " + num(it.live_count) +
+      ". It was set aside because that's less than half. It's shown below."));
+    const row = el("div", "button-row");
+    row.append(
+      button("Approve: make it live…", "button small", () => decide(true)),
+      button("Reject: keep it hidden", "button small quiet", () => decide(false)),
+    );
+    if (lib.data && lib.data.shown && lib.data.shown.id !== it.menu_id) {
+      card.append(el("p", "status err", "The re-read's menu wasn't found; it can only be rejected."));
+    }
+    card.append(row);
+    const st = el("p", "status", "");
+    st.id = "review-status";
+    st.setAttribute("role", "status");
+    card.append(st);
+    return card;
+  }
+
+  async function decide(approve) {
+    const it = lib.review;
+    if (!it) return;
+    const ok = approve
+      ? window.confirm("Make this re-read the live menu?\n\n" + num(it.new_count) + " dishes replace " + num(it.live_count) +
+          " for every tester, from their next refresh or add.\nThe current menu is kept: hide the new version to bring it back.")
+      : window.confirm("Reject this re-read?\n\nIt stays hidden and the live menu (" + num(it.live_count) + " dishes) stays as it is.");
+    if (!ok) return;
+    const st = $("review-status");
+    if (st) { st.className = "status"; st.textContent = "Saving…"; }
+    try {
+      const res = await callApi("review_decide", approve ? { versionId: it.version_id, approve: true, confirm: true } : { versionId: it.version_id, approve: false });
+      if (res.status === 401) return route();
+      if (res.status !== 200) {
+        const m = res.body && res.body.error && res.body.error.message;
+        if (st) { st.className = "status err"; st.textContent = m || "That didn't work (" + res.status + ")."; }
+        return;
+      }
+      lib.review = null;
+      lib.place = null;
+      $("lib-detail").hidden = true;
+      $("lib-list").hidden = false;
+      await loadLibrary();
+      libSay(approve ? "Approved: it's the live menu now." : "Rejected: it stays hidden.");
+    } catch (e) {
+      console.error(e);
+      if (st) { st.className = "status err"; st.textContent = "Couldn't reach the server. Nothing changed."; }
+    }
   }
 
   async function openMenu(place, menuId) {
@@ -494,6 +568,7 @@
     return button("← All menus", "link-button", () => {
       lib.place = null;
       lib.preview = null;
+      lib.review = null;
       $("lib-detail").hidden = true;
       $("lib-list").hidden = false;
       loadLibrary();
@@ -531,6 +606,7 @@
     sub.append(document.createTextNode("place " + d.place_id));
     head.append(sub);
     parts.push(head);
+    if (lib.review && lib.review.place_id === lib.place) parts.push(reviewCard());
 
     // The menu being shown
     const menuCard = el("section", "card");
