@@ -1,4 +1,5 @@
-// The admin panel's Trips tab (Trip Mode T4). Review each city's must-go picks: approve, hide,
+// The admin panel's Trips tab (Trip Mode T4, T6). Who sees Trip Mode in the app (off, a
+// testers list, everyone). Then each city's must-go picks: approve, hide,
 // edit, match a pick to Google, add one by hand, see where its menu stands; check local
 // specialties; and build a city's starter list. Every read and change goes through admin-api
 // (sign-in, admin list, authenticator code, audit log), with the page's own helpers
@@ -95,7 +96,9 @@
     trip.cityId = null;
     $("trip-detail").hidden = true;
     $("trip-list").hidden = false;
+    $("trip-access").hidden = false;
     say("Loading…");
+    loadAccess();
     const cities = await api("trip_cities", {}, "Couldn't load cities");
     if (!cities) return;
     trip.loaded = true;
@@ -121,6 +124,81 @@
   }
 
   /** `quiet`: a refresh after a change, which keeps the message about that change. */
+  // MARK: Who sees Trip Mode in the app (T6)
+
+  const MODES = [["off", "Off"], ["testers", "Testers list"], ["everyone", "Everyone"]];
+  const MODE_TEXT = {
+    off: "Nobody sees Trip Mode in the app.",
+    testers: "Only the accounts below see Trip Mode. Everyone else sees the app as it is today.",
+    everyone: "Every tester sees Trip Mode.",
+  };
+
+  async function loadAccess() {
+    const features = await api("features", {}, "Couldn't load who sees Trip Mode");
+    if (!features) return;
+    renderAccess((features || []).find((f) => f.name === "trip_mode") || { mode: "off", testers: [] });
+  }
+
+  function renderAccess(f) {
+    const c = el("section", "card");
+    c.append(el("h3", null, "Who sees Trip Mode in the app"));
+    const chips = el("div", "chips");
+    for (const [mode, label] of MODES) {
+      const b = button(label, "chip", () => setMode(mode));
+      b.setAttribute("aria-pressed", String(f.mode === mode));
+      chips.append(b);
+    }
+    c.append(chips, el("p", "muted", MODE_TEXT[f.mode] || ""));
+    const ul = el("ul", "plain-list");
+    for (const t of f.testers || []) {
+      const li = el("li");
+      li.append(el("strong", null, t.note || "No name"));
+      li.append(el("span", "muted small-print", " · " + (t.anonymous ? "this install only" : "signed in with " + (t.provider || "an account")) +
+        " · last used " + when(t.last_sign_in_at) + " · " + t.user_id));
+      li.append(document.createTextNode(" "), button("Remove", null, () => removeTester(t)));
+      ul.append(li);
+    }
+    if (!ul.childElementCount) ul.append(el("li", "muted", "Nobody yet."));
+    c.append(ul);
+    const form = el("form", "trip-form");
+    const id = el("input");
+    id.type = "text"; id.placeholder = "Account ID (Settings → Debug in the app)"; id.setAttribute("aria-label", "Account ID"); id.maxLength = 60;
+    const note = el("input");
+    note.type = "text"; note.placeholder = "Name, e.g. Jeff's iPhone"; note.setAttribute("aria-label", "Name"); note.maxLength = 100;
+    const add = el("button", "button small", "Add to the testers list");
+    add.type = "submit";
+    form.append(id, note, add);
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      say("Adding…");
+      const res = await api("add_feature_tester", { feature: "trip_mode", userId: id.value, note: note.value }, "Couldn't add it");
+      if (!res) return;
+      say((note.value.trim() || "That account") + " now sees Trip Mode (when the app next opens).");
+      loadAccess();
+    });
+    c.append(form, el("p", "muted small-print",
+      "An install that isn't signed in gets a new account ID if the app is deleted and reinstalled. Sign in with Apple on your phone to keep the same one."));
+    $("trip-access").replaceChildren(c);
+  }
+
+  async function setMode(mode) {
+    if (mode === "everyone" && !window.confirm("Show Trip Mode to every tester?\n\nThey'll see the Trips tab the next time they open the app. You can switch back at any time.")) return;
+    say("Saving…");
+    const res = await api("set_feature_mode", { feature: "trip_mode", mode, confirm: mode === "everyone" }, "Couldn't change it");
+    if (!res) return;
+    say(MODE_TEXT[mode]);
+    loadAccess();
+  }
+
+  async function removeTester(t) {
+    if (!window.confirm("Take " + (t.note || "this account") + " off the testers list?")) return;
+    say("Removing…");
+    const res = await api("remove_feature_tester", { feature: "trip_mode", userId: t.user_id }, "Couldn't remove it");
+    if (!res) return;
+    say((t.note || "That account") + " removed.");
+    loadAccess();
+  }
+
   async function openCity(id, quiet) {
     if (trip.cityId !== id) trip.estimate = null;
     trip.cityId = id;
@@ -144,6 +222,7 @@
     const d = trip.data;
     const box = $("trip-detail");
     $("trip-list").hidden = true;
+    $("trip-access").hidden = true;
     box.hidden = false;
     const back = button("← All cities", "link-button", () => { trip.loaded = false; loadCities(); });
     const head = el("div", "detail-head");
