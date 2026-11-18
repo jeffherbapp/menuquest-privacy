@@ -123,3 +123,8 @@
   .link-form { grid-template-columns: 1fr; }
   #lib-detail .button.small, .link-form .button.small { width: 100%; }
 }
+
+/* Review queue (A7) */
+.chip.attention { border-color: var(--accent); color: var(--accent); }
+.chip.attention[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.review-card { border-color: var(--accent); }
