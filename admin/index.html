@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- The admin panel. It holds no secrets: only the publishable key, which is public by design.
+     Everything it shows comes from the admin-api Edge Function, which checks the sign-in, the
+     database's admin list and the authenticator code on every request. -->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' data:; connect-src https://anufzyrmkdzgfmwxasul.supabase.co; base-uri 'none'; form-action 'none'">
+<title>MenuQuest Admin</title>
+<meta name="theme-color" content="#faf5ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171311" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="/assets/favicon.png">
+<link rel="stylesheet" href="/assets/site.css?v=3">
+<link rel="stylesheet" href="/admin/admin.css?v=1">
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="/"><span class="mark" aria-hidden="true"></span>MenuQuest</a>
+    <button type="button" class="link-button" id="sign-out" hidden>Sign out</button>
+  </div>
+</header>
+
+<main class="narrow admin">
+  <p class="eyebrow">Admin</p>
+  <noscript><p>The admin panel needs JavaScript.</p></noscript>
+
+  <!-- Checking an existing sign-in. -->
+  <section id="loading" class="card"><p class="status">Checking…</p></section>
+
+  <!-- Step 1: email. -->
+  <section id="step-email" class="card" hidden>
+    <h1>Sign in</h1>
+    <form id="email-form" novalidate>
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required>
+      <button class="button" type="submit">Email me a code</button>
+      <p class="status" role="status"></p>
+    </form>
+  </section>
+
+  <!-- Step 2: the emailed code. -->
+  <section id="step-code" class="card" hidden>
+    <h1>Check your email</h1>
+    <p>If this address can sign in, a 6-digit code is on its way. Enter it here, or tap the link in the email.</p>
+    <form id="code-form" novalidate>
+      <label for="code">Code from the email</label>
+      <input id="code" name="code" type="text" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*" maxlength="10" required>
+      <button class="button" type="submit">Continue</button>
+      <button class="link-button" type="button" id="code-back">Use a different email</button>
+      <p class="status" role="status"></p>
+    </form>
+  </section>
+
+  <!-- Step 3a: set up the authenticator app (first sign-in only). -->
+  <section id="step-enroll" class="card" hidden>
+    <h1>Set up your authenticator app</h1>
+    <p>Scan this with your authenticator app (for example the iPhone Passwords app, 1Password or Google Authenticator), then enter the 6-digit code it shows.</p>
+    <img id="enroll-qr" alt="QR code for your authenticator app" width="200" height="200">
+    <details>
+      <summary>Can't scan it?</summary>
+      <p>Enter this key in the app instead: <code id="enroll-secret"></code></p>
+    </details>
+    <form id="enroll-form" novalidate>
+      <label for="enroll-code">Code from the app</label>
+      <input id="enroll-code" name="code" type="text" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" required>
+      <button class="button" type="submit">Turn on</button>
+      <p class="status" role="status"></p>
+    </form>
+  </section>
+
+  <!-- Step 3b: the authenticator code (every sign-in after the first). -->
+  <section id="step-mfa" class="card" hidden>
+    <h1>Authenticator code</h1>
+    <form id="mfa-form" novalidate>
+      <label for="mfa-code">Code from your authenticator app</label>
+      <input id="mfa-code" name="code" type="text" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" required>
+      <button class="button" type="submit">Continue</button>
+      <p class="status" role="status"></p>
+    </form>
+  </section>
+
+  <!-- Anyone who isn't an admin. -->
+  <section id="denied" class="card" hidden>
+    <h1>Not allowed</h1>
+    <p>This account can't use the admin panel.</p>
+  </section>
+
+  <!-- Something went wrong (network, server). -->
+  <section id="problem" class="card" hidden>
+    <h1>Something went wrong</h1>
+    <p class="status" id="problem-text"></p>
+    <button class="button" type="button" id="retry">Try again</button>
+  </section>
+
+  <!-- The panel. Filled only after admin-api says admin: true. -->
+  <section id="panel" hidden>
+    <h1>MenuQuest admin</h1>
+    <p class="signed-in">Signed in as <span id="who"></span></p>
+    <div class="card">
+      <p>You're in. The dashboard arrives in the next update.</p>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous"></script>
+<script src="/admin/admin.js?v=1"></script>
+</body>
+</html>
