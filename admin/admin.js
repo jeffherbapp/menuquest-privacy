@@ -423,6 +423,8 @@
     $("tab-tests").hidden = name !== "tests";
     $("tab-background").hidden = name !== "background";
     if (name === "background" && !bg.loaded) loadBackground();
+    $("tab-trips").hidden = name !== "trips";
+    if (name === "trips" && window.MQTrips) window.MQTrips.open();
     if (name === "tests" && !gate.loaded) loadGate();
     try { sessionStorage.setItem("menuquest-admin-tab", name); } catch (_) { /* fine */ }
     if (name === "menus" && !$("lib-items").childElementCount && !lib.place) loadLibrary();
@@ -1350,7 +1352,7 @@
         $("who").textContent = String(res.body.email || res.body.userId || "");
         show("panel");
         let tab = "overview";
-        try { tab = ["menus", "tests", "background"].includes(sessionStorage.getItem("menuquest-admin-tab")) ? sessionStorage.getItem("menuquest-admin-tab") : "overview"; } catch (_) { /* fine */ }
+        try { tab = ["menus", "tests", "background", "trips"].includes(sessionStorage.getItem("menuquest-admin-tab")) ? sessionStorage.getItem("menuquest-admin-tab") : "overview"; } catch (_) { /* fine */ }
         showTab(tab);
         await loadCosts();
         return await loadDashboard();
@@ -1490,6 +1492,9 @@
       history.replaceState(null, "", location.pathname);
     }
   });
+
+  // Trip Mode (trips.js) builds its tab with the same helpers and the same checked API calls.
+  window.MQAdmin = Object.freeze({ callApi, el, button, badge, outLink, usd, num, when, route, show });
 
   route();
 })();
