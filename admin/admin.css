@@ -239,3 +239,10 @@
 .import-notes div { font-size: 13px; margin: 2px 0; }
 .err-text { color: var(--accent); }
 .trip-candidates .button-row input[type="file"] { max-width: 100%; }
+
+/* Users (A11a) */
+#users-detail .card { max-width: none; }
+#users-detail .card h3 { font-size: 18px; margin: 0 0 6px; }
+#users-detail .button.small { width: auto; }
+#users-detail code { font: 13px ui-monospace, "SF Mono", Menlo, monospace; overflow-wrap: anywhere; user-select: all; }
+@media (max-width: 520px) { #users-detail .button.small { width: 100%; } }

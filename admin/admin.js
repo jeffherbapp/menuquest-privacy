@@ -424,6 +424,8 @@
     $("tab-background").hidden = name !== "background";
     if (name === "background" && !bg.loaded) loadBackground();
     $("tab-trips").hidden = name !== "trips";
+    $("tab-users").hidden = name !== "users";
+    if (name === "users" && !users.loaded) loadUsers(false);
     if (name === "trips" && window.MQTrips) window.MQTrips.open();
     if (name === "tests" && !gate.loaded) loadGate();
     try { sessionStorage.setItem("menuquest-admin-tab", name); } catch (_) { /* fine */ }
@@ -1596,6 +1598,211 @@
     if (ok) bgChange("set_seeding", { on: true, confirm: true }, "Seeding is on.");
   }
 
+
+  // MARK: Users (A11a). Read-only, plus feature testers (the Trip Mode feature routes).
+
+  const users = { loaded: false, filter: "active7", query: "", items: [], total: 0, id: null };
+  const KIND = { anonymous: "Anonymous install", apple: "Sign in with Apple", email: "Email", other: "Other" };
+  const FEATURE_NAMES = { trip_mode: "Trip Mode" };
+
+  function usersSay(text, isError) {
+    $("users-status").className = "status" + (isError ? " err" : "");
+    $("users-status").textContent = text || "";
+  }
+
+  async function loadUsers(more) {
+    users.loaded = true;
+    if (!more) users.items = [];
+    usersSay("Loading…");
+    try {
+      const res = await callApi("users", { query: users.query, filter: users.filter, limit: 50, offset: users.items.length });
+      if (res.status === 401) return route();
+      if (res.status === 403) return show("denied");
+      if (res.status !== 200) return usersSay("Couldn't load accounts (" + res.status + ").", true);
+      users.items = users.items.concat(res.body.items || []);
+      users.total = res.body.total || 0;
+      renderUsers(res.body.counts || {});
+    } catch (e) {
+      console.error(e);
+      usersSay("Couldn't reach the server.", true);
+    }
+  }
+
+  function renderUsers(counts) {
+    const filters = [["active7", "Active 7 days"], ["all", "All"], ["apple", "Apple"], ["email", "Email"], ["anonymous", "Anonymous"], ["testers", "Testers"], ["admins", "Admins"]];
+    $("users-filters").replaceChildren(...filters.map(([key, label]) => {
+      const b = button(label + " " + num(counts[key]), "chip", () => { users.filter = key; loadUsers(false); });
+      b.setAttribute("aria-pressed", String(users.filter === key));
+      return b;
+    }));
+    usersSay(users.items.length ? "Showing " + num(users.items.length) + " of " + num(users.total) + "." : "No accounts match.");
+    $("users-items").replaceChildren(...users.items.map((u) => {
+      const li = el("li");
+      const row = el("button", "lib-row");
+      row.type = "button";
+      const title = u.email || (KIND[u.kind] || u.kind) + " · " + String(u.id).slice(0, 8);
+      const tags = el("span", "lib-tags");
+      if (u.is_admin) tags.append(badge("Admin", "on"));
+      for (const f of u.testers || []) tags.append(badge(FEATURE_NAMES[f] || f, "on"));
+      row.append(el("span", "lib-name", title), tags,
+        el("span", "lib-meta", (KIND[u.kind] || u.kind) + " · last active " + (u.last_active ? when(u.last_active) : "never") +
+          (u.app_build ? " · app build " + u.app_build : "") + " · 7 days: " + num(u.lookups_7d) + " lookups, " + num(u.scans_7d) + " scans"));
+      row.addEventListener("click", () => openUser(u.id));
+      li.append(row);
+      return li;
+    }));
+    $("users-more").hidden = users.items.length >= users.total;
+  }
+
+  async function openUser(id) {
+    users.id = id;
+    $("users-list").hidden = true;
+    $("users-detail").hidden = false;
+    $("users-detail").replaceChildren(el("p", "status", "Loading…"));
+    try {
+      const res = await callApi("user", { userId: id });
+      if (res.status === 401) return route();
+      if (res.status !== 200) {
+        const m = res.body && res.body.error && res.body.error.message;
+        return $("users-detail").replaceChildren(usersBack(), el("p", "status err", m || "Couldn't load that account (" + res.status + ")."));
+      }
+      renderUser(res.body);
+    } catch (e) {
+      console.error(e);
+      $("users-detail").replaceChildren(usersBack(), el("p", "status err", "Couldn't reach the server."));
+    }
+  }
+
+  function usersBack() {
+    return button("← All accounts", "link-button", () => {
+      users.id = null;
+      $("users-detail").hidden = true;
+      $("users-list").hidden = false;
+      loadUsers(false);
+    });
+  }
+
+  function renderUser(d) {
+    const a = d.account || {};
+    const parts = [usersBack()];
+    const head = el("div", "detail-head");
+    head.append(el("h2", null, a.email || KIND[a.kind] || "Account"));
+    const idLine = el("p", "muted");
+    idLine.append(document.createTextNode((KIND[a.kind] || a.kind) + " · account "), el("code", null, a.id || ""));
+    head.append(idLine, el("p", "muted", "Started " + when(a.created_at) + " · last active " + (a.last_active ? when(a.last_active) : "never") +
+      (a.app_build ? " · app build " + a.app_build : "") + (a.is_admin ? " · admin" : "")));
+    parts.push(head);
+
+    // Feature testers
+    const feats = el("section", "card");
+    feats.append(el("h3", null, "Features"));
+    for (const f of d.features || []) {
+      const row = el("div", "switch-row");
+      const text = el("div", "switch-text");
+      const name = FEATURE_NAMES[f.name] || f.name;
+      const hd = el("div", "switch-head");
+      hd.append(el("strong", null, name), badge(f.tester ? "On the testers list" : "Not a tester", f.tester ? "on" : "off"));
+      text.append(hd, el("p", "switch-detail", f.mode === "everyone" ? "Everyone has " + name + " now." : f.mode === "off" ? name + " is off for everyone." :
+        "Only the testers list has " + name + "."));
+      const b = button(f.tester ? "Remove" : "Add as tester…", "button small" + (f.tester ? " quiet" : ""), () => setTester(f, !f.tester, a));
+      row.append(text, b);
+      feats.append(row);
+    }
+    if (!(d.features || []).length) feats.append(el("p", "muted", "No features to switch yet."));
+    const st = el("p", "status", "");
+    st.id = "user-status";
+    st.setAttribute("role", "status");
+    feats.append(st);
+    parts.push(feats);
+
+    // Usage
+    const use = el("section", "card");
+    use.append(el("h3", null, "Use"));
+    const t = el("table", "periods");
+    const hr = el("tr");
+    for (const h of ["", "7 days", "30 days"]) hr.append(el("th", null, h));
+    const thead = el("thead");
+    thead.append(hr);
+    const tbody = el("tbody");
+    const label = { places: "Restaurant searches", "fetch-menu": "Website menu lookups", "parse-menu": "Photo scans", "tag-dishes": "Dish tagging",
+      "share-menu": "Menus shared", "report-menu": "Menus reported" };
+    for (const u of d.usage || []) {
+      const tr = el("tr");
+      tr.append(el("th", null, label[u.kind] || u.kind), el("td", null, num(u.d7 || 0)), el("td", null, num(u.d30 || 0)));
+      tbody.append(tr);
+    }
+    if (!tbody.childElementCount) {
+      const tr = el("tr");
+      tr.append(el("td", "muted", "Nothing in the last 30 days."));
+      tbody.append(tr);
+    }
+    t.append(thead, tbody);
+    use.append(t);
+    parts.push(use);
+
+    // Menus and reports
+    const mr = el("section", "card");
+    mr.append(el("h3", null, "Menus contributed"));
+    const ml = el("ul", "plain-list");
+    for (const m of d.menus || []) {
+      const li = el("li");
+      li.append(button(m.name || m.place_id, null, () => { showTab("menus"); openMenu(m.place_id, null); }),
+        document.createTextNode(" · " + (m.source === "scan" ? "photo scan" : m.source) + " · " + num(m.item_count) + " dishes · " + day(m.created_at) + (m.hidden ? " · hidden" : "")));
+      ml.append(li);
+    }
+    if (!ml.childElementCount) ml.append(el("li", "muted", "None."));
+    mr.append(ml, el("h3", null, "Menu reports"));
+    const rl = el("ul", "plain-list");
+    for (const r of d.reports || []) rl.append(el("li", null, day(r.created_at) + " · " + r.reason + (r.note ? ": “" + r.note + "”" : "")));
+    if (!rl.childElementCount) rl.append(el("li", "muted", "None."));
+    mr.append(rl);
+    parts.push(mr);
+
+    // Sessions
+    const ss = el("section", "card");
+    ss.append(el("h3", null, "Sign-in sessions"));
+    const sl = el("ul", "plain-list");
+    for (const s of d.sessions || []) {
+      sl.append(el("li", null, (s.app_build ? "App build " + s.app_build : "Not the app (a browser or tool)") + " · started " + when(s.created_at) +
+        " · last used " + (s.last_used ? when(s.last_used) : "–")));
+    }
+    if (!sl.childElementCount) sl.append(el("li", "muted", "None open."));
+    ss.append(sl, el("p", "muted", "No IP addresses or locations are shown or kept here."));
+    parts.push(ss);
+
+    $("users-detail").replaceChildren(...parts);
+  }
+
+  async function setTester(feature, add, account) {
+    const name = FEATURE_NAMES[feature.name] || feature.name;
+    const who = account.email || (KIND[account.kind] || account.kind) + " " + String(account.id).slice(0, 8);
+    if (add && !window.confirm("Add " + who + " to the " + name + " testers list?\n\nIt sees " + name + " in the app from its next launch" +
+      (feature.mode === "off" ? " (once " + name + " is switched to the testers list)." : "."))) return;
+    let note = null;
+    if (add) {
+      note = window.prompt("A note so you can tell this account apart (optional), e.g. \"Jeff's iPhone\":", account.email || "");
+      if (note === null) return;
+    }
+    const st = $("user-status");
+    if (st) { st.className = "status"; st.textContent = "Saving…"; }
+    try {
+      const res = await callApi(add ? "add_feature_tester" : "remove_feature_tester",
+        add ? { feature: feature.name, userId: account.id, note: note.trim().slice(0, 100) || null } : { feature: feature.name, userId: account.id });
+      if (res.status === 401) return route();
+      if (res.status !== 200) {
+        const m = res.body && res.body.error && res.body.error.message;
+        if (st) { st.className = "status err"; st.textContent = m || "That didn't work (" + res.status + ")."; }
+        return;
+      }
+      await openUser(account.id);
+      const st2 = $("user-status");
+      if (st2) st2.textContent = add ? "Added." : "Removed.";
+    } catch (e) {
+      console.error(e);
+      if (st) { st.className = "status err"; st.textContent = "Couldn't reach the server. Nothing changed."; }
+    }
+  }
+
   // Works out what to show from the current sign-in and admin-api's answer.
   async function route() {
     show("loading");
@@ -1609,7 +1816,7 @@
         $("who").textContent = String(res.body.email || res.body.userId || "");
         show("panel");
         let tab = "overview";
-        try { tab = ["menus", "tests", "background", "trips"].includes(sessionStorage.getItem("menuquest-admin-tab")) ? sessionStorage.getItem("menuquest-admin-tab") : "overview"; } catch (_) { /* fine */ }
+        try { tab = ["menus", "tests", "background", "trips", "users"].includes(sessionStorage.getItem("menuquest-admin-tab")) ? sessionStorage.getItem("menuquest-admin-tab") : "overview"; } catch (_) { /* fine */ }
         showTab(tab);
         await loadCosts();
         return await loadDashboard();
@@ -1738,6 +1945,13 @@
   });
   $("gate-place-select").addEventListener("change", (e) => loadGateMenu(e.target.value));
   $("bg-refresh").addEventListener("click", () => loadBackground());
+  $("users-search").addEventListener("submit", (e) => {
+    e.preventDefault();
+    users.query = $("users-query").value.trim().slice(0, 200);
+    if (users.query) users.filter = "all";
+    loadUsers(false);
+  });
+  $("users-more").addEventListener("click", () => loadUsers(true));
   $("dash-refresh").addEventListener("click", async () => {
     await loadCosts();
     await loadDashboard();
