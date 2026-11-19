@@ -252,3 +252,10 @@
 .feature-block { border-top: 1px solid var(--rule); padding: 10px 0; }
 .feature-block .chips { margin: 6px 0; }
 .features-card .link-button { padding: 0; font-size: 14px; }
+
+/* Feedback (A11b) */
+#tab-feedback .card { max-width: none; }
+.fb-card.fb-new { border-color: var(--accent); }
+.fb-message { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 16px; margin: 8px 0 !important; color: var(--ink) !important; }
+#tab-feedback .button.small { width: auto; }
+#tab-feedback #fb-filters { margin-top: 16px; }
