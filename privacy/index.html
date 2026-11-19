@@ -28,7 +28,7 @@
 <p class="date">Effective November 18, 2026</p>
 
 <p class="summary"><strong>The short version:</strong> MenuQuest has no ads or tracking, and signing in is optional.
-Your restaurants, ratings, and notes stay on your device and in your own iCloud.
+Your restaurants, ratings, notes, and trips stay on your device and in your own iCloud.
 A few things leave your device to make features work: menu photos you choose to scan
 (passed to Anthropic to read the menu), and restaurant searches and, if you allow it, your
 location (passed to Google to find restaurants). These go through MenuQuest's server, which
@@ -44,10 +44,21 @@ and available on your other devices. That data is stored by Apple under
 <a href="https://www.apple.com/legal/privacy/">Apple's privacy policy</a>; the MenuQuest
 developer cannot access it.</p>
 
+<p>The same goes for your taste answers: the taste quiz, the allergies and diet you choose,
+foods you'll never order, and what you tell MenuQuest about dishes you rated. They're used on
+your device to pick dishes and flag ones that may not suit you, and sync through your private
+iCloud so they follow you to a new device. They're never sent to MenuQuest's server or to any
+AI service. You can change or reset them any time in Settings → Your tastes.</p>
+
+<p>Trips you plan stay on your device and in your private iCloud too: the destination, the
+dates, the restaurant you plan for each meal, reservation times, and notes. Reservation
+reminders are notifications set on your iPhone; they aren't sent anywhere. Trip quests and
+must-go suggestions for your taste are worked out on your device.</p>
+
 <h2>What leaves your device, and why</h2>
 <p>Requests go to MenuQuest's server (hosted by Supabase), which passes them on to the
 service that does the work and sends back the result. The server doesn't store your photos,
-searches, or location.</p>
+searches, location, or trip destinations.</p>
 <table>
   <thead><tr><th>Data</th><th>Sent to</th><th>When and why</th></tr></thead>
   <tbody>
@@ -59,10 +70,10 @@ searches, or location.</p>
         <td>Only when you search while adding a restaurant, to find and verify it.</td></tr>
     <tr><td>Your current location</td>
         <td>MenuQuest's server → Google (Places API)</td>
-        <td>Only if you allow location access, when you open “Add Restaurant,” to list restaurants near you. MenuQuest doesn't save your location or use it in the background.</td></tr>
+        <td>Only if you allow location access, and only when you tap “Check Google nearby” or “Search wider” on the Add Restaurant screen because Apple Maps' list missed a place. MenuQuest doesn't save your location or use it in the background.</td></tr>
     <tr><td>Your current location</td>
         <td>Apple Maps (on your iPhone)</td>
-        <td>Only if you allow location access, when the Restaurants screen is open and you aren't at one of your restaurants, to guess which restaurant you're at (“Are you at…”). This goes to Apple, as with any map on your iPhone, under <a href="https://www.apple.com/legal/privacy/">Apple's privacy policy</a>; it doesn't go to Google or MenuQuest's server. When you tap Add, the restaurant's name and your location are sent to Google, through MenuQuest's server, to confirm it.</td></tr>
+        <td>Only if you allow location access: when the Restaurants screen is open and you aren't at one of your restaurants, to guess which restaurant you're at (“Are you at…”), and when you open “Add Restaurant,” to list restaurants near you. This goes to Apple, as with any map on your iPhone, under <a href="https://www.apple.com/legal/privacy/">Apple's privacy policy</a>; it doesn't go to Google or MenuQuest's server. When you tap a place to add it, its name and location are sent to Google, through MenuQuest's server, to confirm it.</td></tr>
     <tr><td>The menu you scanned: section and dish names, descriptions, prices, and dish tags</td>
         <td>MenuQuest's server (Supabase)</td>
         <td>After you scan a verified restaurant's menu, so the next person who adds that restaurant gets the menu ready-made. Stored with the restaurant's Google Place ID and your random app ID (so bad uploads can be removed). Never includes your photos, ratings, notes, or which dishes you've tried, and isn't shown to other users with anything that identifies you.</td></tr>
@@ -72,6 +83,12 @@ searches, or location.</p>
     <tr><td>Feedback you send (your message, the app version, iOS version and iPhone model), and your account's email if you ask for a reply</td>
         <td>MenuQuest's server (Supabase)</td>
         <td>Only if you use Settings › Send feedback, so we can read it and fix what you found. Stored with your random app ID. Your account's email is kept with it only if you turn on “You can email me back” while signed in with Apple or email; you never type an address in. No photos, ratings or notes are sent with it.</td></tr>
+    <tr><td>Trip destination and restaurant searches</td>
+        <td>Apple Maps (on your iPhone)</td>
+        <td>When you choose a trip's destination or look for a restaurant to plan for a meal. This goes to Apple under <a href="https://www.apple.com/legal/privacy/">Apple's privacy policy</a>. When you plan a meal at a restaurant you haven't added yet, its name and location are sent to Google, through MenuQuest's server, to confirm it, as when you add a restaurant.</td></tr>
+    <tr><td>A trip's destination (the map location of the city, not yours)</td>
+        <td>MenuQuest's server (Supabase)</td>
+        <td>When you open a trip, to check whether MenuQuest has must-go restaurants and local specialties for that city and download them, with their menus, so they work offline. Not saved. Your dates, meal plans, reservations and notes aren't sent.</td></tr>
     <tr><td>Names and descriptions of dishes on a restaurant's current menu</td>
         <td>MenuQuest's server → Anthropic (Claude API)</td>
         <td>When you open a restaurant whose menu was saved before MenuQuest started describing dishes, to describe its dishes (cuisine, cooking style, flavors). The whole current menu is sent, so it doesn't reveal which dishes you've tried. Your ratings, notes and history are not sent; recommendations, quests and points are worked out on your device.</td></tr>
@@ -105,6 +122,10 @@ your iCloud.</p>
 removes your account and email address from MenuQuest's server, along with any feedback you
 sent; menus you shared stay in the library but are no longer linked to you.</p>
 
+<p>When we test a new feature before it's ready for everyone, MenuQuest's server keeps a
+testers list of the app IDs that can see it. If you're on one, your app ID is stored there
+until the feature is out or you're removed.</p>
+
 <h2 id="website">The MenuQuest website</h2>
 <p>menuquest.app has no ads, analytics, or tracking cookies. If you request a beta invite
 there, we store the email address and first name you enter, the date, and that it came from
@@ -136,7 +157,9 @@ feedback you choose to submit with the developer, as described in
 <a href="https://www.apple.com/legal/internet-services/itunes/testflight/sren/terms.html">TestFlight's terms</a>.</p>
 
 <h2>Deleting your data</h2>
-<p>You can delete any dish or restaurant in the app. Deleting the app removes its data from
+<p>You can delete any dish, restaurant, or trip in the app (deleting a trip also removes
+its meal plans and reminders), and reset your taste answers (here and in
+your iCloud) in Settings → Your tastes. Deleting the app removes its data from
 your device; to remove the iCloud copy, go to Settings → [your name] → iCloud → Manage
 Account Storage → MenuQuest → Delete Data.</p>
 
