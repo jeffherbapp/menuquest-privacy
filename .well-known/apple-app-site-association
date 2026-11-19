@@ -1,0 +1,12 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["84RAAU5S7A.com.jeffherb.menuquest"],
+        "components": [
+          { "/": "/t/*", "comment": "Shared trip invites: menuquest.app/t/#<code> opens MenuQuest" }
+        ]
+      }
+    ]
+  }
+}
