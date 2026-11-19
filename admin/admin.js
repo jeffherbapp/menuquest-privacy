@@ -1135,12 +1135,13 @@
     bg.loaded = true;
     bgSay("Loading…");
     try {
-      const [res, studio, checks] = await Promise.all([callApi("background"), callApi("studio"), callApi("checks")]);
+      const [res, studio, checks, reads] = await Promise.all([callApi("background"), callApi("studio"), callApi("checks"), callApi("studio_reads")]);
       if (res.status === 401 || studio.status === 401) return route();
       if (res.status === 403 || studio.status === 403) return show("denied");
       if (res.status !== 200) return bgSay("Couldn't load background work (" + res.status + ").", true);
       bg.data = res.body;
       bg.studio = studio.status === 200 ? studio.body : null;
+      bg.studioReads = reads.status === 200 ? reads.body : null;
       bg.checks = checks.status === 200 ? checks.body : null;
       bgSay("");
       renderBackground();
@@ -1493,7 +1494,55 @@
     t.append(thead, tbody);
     card.append(t, el("p", "muted", num(r.waiting) + " waiting · last finished " + (r.last_finished_at ? when(r.last_finished_at) : "never") +
       ". Average time is what the Studio reports per job (quality-test reads take longest)."));
+    if (bg.studioReads) studioReadsPart(card, bg.studioReads);
     return card;
+  }
+
+  // R5: menu reading on the Studio (MiQ), for background menus only (never one someone waits for).
+  function studioReadsPart(card, sr) {
+    card.append(el("h3", null, "Menu reading (MiQ)"));
+    const head = el("div", "switch-head");
+    const a = sr.approved;
+    head.append(el("strong", null, sr.reading ? "Reading background menus" : "Not reading menus"), badge(sr.reading ? "On" : "Off", sr.reading ? "on" : "off"));
+    card.append(head);
+    const score = (x) => x ? "dishes found " + x.recall + " · extra dishes " + x.precision + " · prices " + x.prices : "";
+    card.append(el("p", "muted", a
+      ? "Approved: test run " + a.run + " (" + a.version + "), " + score(a) + ". The Studio reads nightly re-reads (and pre-loaded places later) for free. Its allergens are left out; Claude checks them when someone opens the menu."
+      : "No MiQ test run is approved, so the Studio only finds menu links and does test reads."));
+    const row = el("div", "button-row");
+    if (sr.reading) {
+      row.append(button("Stop menu reading", "button small quiet", () =>
+        bgChange("stop_studio_reads", {}, "Stopped: the Studio reads no more menus for real. Menus it already saved stay.")));
+    }
+    for (const run of sr.approvable || []) {
+      row.append(button("Approve test run " + run.run + " (" + run.version + ")", "button small", () => {
+        const ok = window.confirm("Approve test run " + run.run + " (" + run.version + ")?\n\n" + score(run) +
+          "\n\nThe Studio will read background menus with it and put them in the library for everyone. Allergens are still checked by Claude when someone opens a menu. You can stop it any time.");
+        if (ok) bgChange("approve_studio_reads", { run: run.run, confirm: true }, "Approved: the Studio reads background menus with " + run.version + ".");
+      }));
+    }
+    if (row.childNodes.length) card.append(row);
+    const j = sr.jobs || {};
+    card.append(el("p", "muted", num(j.waiting) + " menus waiting · " + num(j.running) + " being read · last 7 days: " + num(j.done_7d) + " done, " + num(j.failed_7d) + " failed."));
+    const recent = sr.recent || [];
+    if (!recent.length) {
+      card.append(el("p", "muted", "The Studio hasn't saved any menus yet."));
+      return;
+    }
+    const t = el("table", "periods");
+    const hr = el("tr");
+    for (const h of ["Restaurant", "Dishes", "Saved", "Allergens"]) hr.append(el("th", null, h));
+    const thead = el("thead");
+    thead.append(hr);
+    const tbody = el("tbody");
+    for (const m of recent) {
+      const tr = el("tr");
+      tr.append(el("td", null, (m.name || m.place_id) + (m.hidden ? " (waiting for review)" : "")), el("td", null, num(m.dishes)),
+        el("td", null, when(m.created_at)), el("td", m.allergens_checked ? null : "bad", m.allergens_checked ? "Checked" : "Not yet"));
+      tbody.append(tr);
+    }
+    t.append(thead, tbody);
+    card.append(el("p", "muted", "The Studio's recent menus. Allergens are checked the first time someone opens one."), t);
   }
 
   // A8b: estimate, then run.
