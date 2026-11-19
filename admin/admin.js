@@ -425,6 +425,8 @@
     if (name === "background" && !bg.loaded) loadBackground();
     $("tab-trips").hidden = name !== "trips";
     $("tab-users").hidden = name !== "users";
+    $("tab-feedback").hidden = name !== "feedback";
+    if (name === "feedback" && !fb.loaded) loadFeedback(false);
     if (name === "users" && !users.loaded) { loadUsers(false); loadFeatures(); }
     if (name === "trips" && window.MQTrips) window.MQTrips.open();
     if (name === "tests" && !gate.loaded) loadGate();
@@ -1884,6 +1886,100 @@
     }
   }
 
+
+  // MARK: Feedback (A11b): messages from the app's Settings → Send feedback.
+
+  const fb = { loaded: false, status: "new", items: [], counts: {} };
+  const ACCOUNT_KIND = { anonymous: "Anonymous install", apple: "Sign in with Apple", email: "Email account" };
+
+  function fbSay(text, isError) {
+    $("fb-status").className = "status" + (isError ? " err" : "");
+    $("fb-status").textContent = text || "";
+  }
+
+  async function loadFeedback(more) {
+    fb.loaded = true;
+    if (!more) fb.items = [];
+    fbSay("Loading…");
+    try {
+      const res = await callApi("feedback", { status: fb.status, limit: 50, offset: fb.items.length });
+      if (res.status === 401) return route();
+      if (res.status === 403) return show("denied");
+      if (res.status !== 200) return fbSay("Couldn't load feedback (" + res.status + ").", true);
+      fb.items = fb.items.concat(res.body.items || []);
+      fb.counts = res.body.counts || {};
+      renderFeedback();
+    } catch (e) {
+      console.error(e);
+      fbSay("Couldn't reach the server.", true);
+    }
+  }
+
+  function renderFeedback() {
+    const c = fb.counts;
+    $("fb-filters").replaceChildren(...[["new", "New"], ["handled", "Handled"], ["all", "All"]].map(([key, label]) => {
+      const b = button(label + " " + num(c[key]), "chip" + (key === "new" && c.new > 0 ? " attention" : ""), () => { fb.status = key; loadFeedback(false); });
+      b.setAttribute("aria-pressed", String(fb.status === key));
+      return b;
+    }));
+    const total = fb.status === "all" ? c.all : c[fb.status];
+    fbSay(fb.items.length ? "" : fb.status === "new" ? "Nothing new." : "None.");
+    $("fb-items").replaceChildren(...fb.items.map(feedbackCard));
+    $("fb-more").hidden = fb.items.length >= (total || 0);
+  }
+
+  function feedbackCard(f) {
+    const card = el("section", "card fb-card" + (f.status === "new" ? " fb-new" : ""));
+    const head = el("div", "switch-head");
+    head.append(el("strong", null, when(f.created_at)), badge(f.status === "new" ? "New" : "Handled", f.status === "new" ? "off" : "on"));
+    card.append(head);
+    card.append(el("p", "fb-message", f.message));
+    const meta = el("p", "muted small-print");
+    meta.append(document.createTextNode((ACCOUNT_KIND[f.account] || f.account) + " · app " + (f.app_version || "?") + " · " +
+      (f.os_version || "?") + " · " + (f.device || "?") + " · "));
+    meta.append(button("Open account", null, () => { showTab("users"); openUser(f.user_id); }));
+    card.append(meta);
+    if (f.can_reply && f.reply_email) {
+      const reply = el("p", null, "Reply to ");
+      const a = el("a", null, f.reply_email);
+      a.href = "mailto:" + encodeURIComponent(f.reply_email).replace(/%40/g, "@") + "?subject=" + encodeURIComponent("Your MenuQuest feedback");
+      reply.append(a);
+      card.append(reply);
+    } else {
+      card.append(el("p", "muted small-print", "No reply asked for."));
+    }
+    if (f.admin_note) card.append(el("p", "muted", "Note: " + f.admin_note));
+    const row = el("div", "button-row");
+    row.append(
+      button(f.status === "new" ? "Mark handled" : "Mark new", "button small" + (f.status === "new" ? "" : " quiet"), () =>
+        setFeedback(f, f.status === "new" ? "handled" : "new", f.admin_note)),
+      button(f.admin_note ? "Edit note" : "Add note", "button small quiet", () => {
+        const note = window.prompt("A note for yourself (only you see it):", f.admin_note || "");
+        if (note === null) return;
+        setFeedback(f, f.status, note);
+      }),
+    );
+    card.append(row);
+    return card;
+  }
+
+  async function setFeedback(f, status, note) {
+    fbSay("Saving…");
+    try {
+      const res = await callApi("set_feedback", { id: f.id, status, note: note ? String(note).trim().slice(0, 500) : null });
+      if (res.status === 401) return route();
+      if (res.status !== 200) {
+        const m = res.body && res.body.error && res.body.error.message;
+        return fbSay(m || "That didn't work (" + res.status + ").", true);
+      }
+      await loadFeedback(false);
+      fbSay(status === "handled" ? "Marked handled." : "Saved.");
+    } catch (e) {
+      console.error(e);
+      fbSay("Couldn't reach the server. Nothing changed.", true);
+    }
+  }
+
   // Works out what to show from the current sign-in and admin-api's answer.
   async function route() {
     show("loading");
@@ -1897,7 +1993,7 @@
         $("who").textContent = String(res.body.email || res.body.userId || "");
         show("panel");
         let tab = "overview";
-        try { tab = ["menus", "tests", "background", "trips", "users"].includes(sessionStorage.getItem("menuquest-admin-tab")) ? sessionStorage.getItem("menuquest-admin-tab") : "overview"; } catch (_) { /* fine */ }
+        try { tab = ["menus", "tests", "background", "trips", "users", "feedback"].includes(sessionStorage.getItem("menuquest-admin-tab")) ? sessionStorage.getItem("menuquest-admin-tab") : "overview"; } catch (_) { /* fine */ }
         showTab(tab);
         await loadCosts();
         return await loadDashboard();
@@ -2033,6 +2129,7 @@
     loadUsers(false);
   });
   $("users-more").addEventListener("click", () => loadUsers(true));
+  $("fb-more").addEventListener("click", () => loadFeedback(true));
   $("dash-refresh").addEventListener("click", async () => {
     await loadCosts();
     await loadDashboard();
