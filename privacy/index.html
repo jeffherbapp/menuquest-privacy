@@ -25,7 +25,7 @@
 
 <main class="narrow page">
 <h1>MenuQuest Privacy Policy</h1>
-<p class="date">Effective November 18, 2026</p>
+<p class="date">Effective November 19, 2026</p>
 
 <p class="summary"><strong>The short version:</strong> MenuQuest has no ads or tracking, and signing in is optional.
 Your restaurants, ratings, notes, and trips stay on your device and in your own iCloud.
@@ -53,7 +53,9 @@ AI service. You can change or reset them any time in Settings → Your tastes.</
 <p>Trips you plan stay on your device and in your private iCloud too: the destination, the
 dates, the restaurant you plan for each meal, reservation times, and notes. Reservation
 reminders are notifications set on your iPhone; they aren't sent anywhere. Trip quests and
-must-go suggestions for your taste are worked out on your device.</p>
+must-go suggestions for your taste are worked out on your device. If you share a trip with
+other people, its plan is also kept on MenuQuest's server; see <a href="#shared-trips">Shared
+trips</a>.</p>
 
 <p>Meal nudges (“Mark what you tried” and “How was it?”) are notifications set on your
 iPhone when MenuQuest sees you at one of your restaurants. The restaurant and when you were
@@ -63,7 +65,8 @@ turn them off in Settings → Notifications.</p>
 <h2>What leaves your device, and why</h2>
 <p>Requests go to MenuQuest's server (hosted by Supabase), which passes them on to the
 service that does the work and sends back the result. The server doesn't store your photos,
-searches, location, or trip destinations.</p>
+searches, location, or trip destinations (except trips you choose to share; see
+<a href="#shared-trips">Shared trips</a>).</p>
 <table>
   <thead><tr><th>Data</th><th>Sent to</th><th>When and why</th></tr></thead>
   <tbody>
@@ -109,8 +112,8 @@ data under its own terms:
 <a href="https://www.anthropic.com/legal/privacy">Anthropic's privacy policy</a> and
 <a href="https://policies.google.com/privacy">Google's privacy policy</a>; MenuQuest's
 server runs on Supabase (<a href="https://supabase.com/privacy">Supabase's privacy policy</a>).
-Your photos, notes, and ratings are never shared with other users, and your notes and
-ratings never leave your device except through your own iCloud.</p>
+Your photos, ratings, and restaurant and dish notes are never shared with other users, and
+your ratings and those notes never leave your device except through your own iCloud.</p>
 
 <p>When you add a restaurant that has no menu in MenuQuest yet, MenuQuest's server may read
 that restaurant's own public website to find its menu, and adds it to the shared library.
@@ -130,6 +133,26 @@ sent; menus you shared stay in the library but are no longer linked to you.</p>
 <p>When we test a new feature before it's ready for everyone, MenuQuest's server keeps a
 testers list of the app IDs that can see it. If you're on one, your app ID is stored there
 until the feature is out or you're removed.</p>
+
+<h2 id="shared-trips">Shared trips</h2>
+<p>A trip stays private on your device and in your iCloud unless you share it. Sharing and
+joining a shared trip need a signed-in account.</p>
+<p>When you share a trip, or join one from an invite link, MenuQuest's server (Supabase) keeps
+one copy of its plan so everyone on the trip can see and change it: the trip's name, the
+destination (its name and map location), the dates and time zone, each planned meal (the
+restaurant's name and Google Place ID, the reservation time and link, and the note), who
+planned or last changed each meal, and the people on the trip (their account ID, the name each
+person chose to show, and who owns the trip). Everyone on the trip sees all of this, including
+the names of the others. Up to 8 people can be on a trip.</p>
+<p>Your reminders, ratings, the dishes you try, your notes on restaurants and dishes, and your
+trip quests are never part of a shared trip; they stay on your device and in your iCloud.</p>
+<p>The invite link holds a code that lets anyone with it see whose trip it is, where, and when,
+and join it. The code is after the “#” in the link, so it isn't sent to the website. The owner
+can make a new link at any time, which stops the old one working.</p>
+<p>The owner can remove people, make the trip view-only for guests, or stop sharing. Stopping
+sharing deletes the server's copy; everyone keeps their own copy on their device. Leaving a
+trip removes you from it. Deleting your account removes you from every shared trip and deletes
+the server's copy of the trips you own.</p>
 
 <h2 id="website">The MenuQuest website</h2>
 <p>menuquest.app has no ads, analytics, or tracking cookies. If you request a beta invite
@@ -163,7 +186,8 @@ feedback you choose to submit with the developer, as described in
 
 <h2>Deleting your data</h2>
 <p>You can delete any dish, restaurant, or trip in the app (deleting a trip also removes
-its meal plans and reminders), and reset your taste answers (here and in
+its meal plans and reminders; deleting a shared trip also leaves it, or stops sharing it if
+it's yours), and reset your taste answers (here and in
 your iCloud) in Settings → Your tastes. Deleting the app removes its data from
 your device; to remove the iCloud copy, go to Settings → [your name] → iCloud → Manage
 Account Storage → MenuQuest → Delete Data.</p>
