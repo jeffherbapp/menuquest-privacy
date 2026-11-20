@@ -1135,7 +1135,7 @@
     bg.loaded = true;
     bgSay("Loading…");
     try {
-      const [res, studio, checks, reads] = await Promise.all([callApi("background"), callApi("studio"), callApi("checks"), callApi("studio_reads")]);
+      const [res, studio, checks, reads, loading] = await Promise.all([callApi("background"), callApi("studio"), callApi("checks"), callApi("studio_reads"), callApi("area_loading")]);
       if (res.status === 401 || studio.status === 401) return route();
       if (res.status === 403 || studio.status === 403) return show("denied");
       if (res.status !== 200) return bgSay("Couldn't load background work (" + res.status + ").", true);
@@ -1143,6 +1143,7 @@
       bg.studio = studio.status === 200 ? studio.body : null;
       bg.studioReads = reads.status === 200 ? reads.body : null;
       bg.checks = checks.status === 200 ? checks.body : null;
+      bg.loading = loading.status === 200 ? loading.body : null;
       bgSay("");
       renderBackground();
     } catch (e) {
@@ -1167,6 +1168,49 @@
       console.error(e);
       bgSay("Couldn't reach the server. Nothing changed.", true);
     }
+  }
+
+  /** F4: an area's free loading (Overture import, then the Studio's pre-reads), with its buttons. */
+  function freeLoadingCell(area) {
+    const td = el("td", "free-loading");
+    const f = (bg.loading || []).find((x) => x.id === area.id);
+    if (!f) { td.textContent = "–"; return td; }
+    const im = f.import || {};
+    const importing = im.requested_at && !im.finished_at;
+    const lines = [];
+    if (importing) lines.push(im.started_at ? "Importing on the Studio…" : "Import waiting for the Studio");
+    else if (im.error) lines.push("Import failed: " + im.error);
+    if (f.imported > 0) {
+      lines.push(num(f.imported) + " imported" + (im.finished_at ? " (" + day(im.finished_at) + ")" : "") +
+        (f.chains ? ", " + num(f.chains) + " chain locations" : "") +
+        (f.never_menus ? ", " + num(f.never_menus) + " without a menu site" : ""));
+      if (f.queued > 0) {
+        lines.push(num(f.read) + " of " + num(f.queued) + " menus read" +
+          (f.waiting ? ", " + num(f.waiting) + " waiting" : "") + (f.failed ? ", " + num(f.failed) + " couldn't be read" : ""));
+      }
+      lines.push(num(f.left) + " left to pre-read");
+    } else if (!importing && !im.error) {
+      lines.push(im.finished_at ? "Imported: none found" : "Not imported yet");
+    }
+    for (const l of lines) td.append(el("div", null, l));
+    const actions = el("div");
+    if (!importing) {
+      actions.append(button(f.imported > 0 ? "Import again" : "Import places", null, () =>
+        bgChange("import_area", { areaId: area.id }, "Import asked for. The Studio takes it on its next check.")));
+    }
+    if (f.left > 0) {
+      if (!importing) actions.append(document.createTextNode(" · "));
+      actions.append(button("Pre-read…", null, () => {
+        const v = window.prompt("How many places in " + area.label + " to pre-read? (" + num(f.left) + " left, most likely first)",
+          String(Math.min(f.left, 50)));
+        if (v === null) return;
+        const n = Number(v);
+        if (!Number.isInteger(n) || n < 1 || n > 1000) return bgSay("Enter a whole number from 1 to 1,000.", true);
+        bgChange("preread_area", { areaId: area.id, limit: n }, "Queued for the Studio. Menus come in as it reads them.");
+      }));
+    }
+    td.append(actions);
+    return td;
   }
 
   function renderBackground() {
@@ -1253,14 +1297,15 @@
     sd.append(totals);
     const t = el("table", "periods money");
     const head = el("tr");
-    for (const h of ["Area", "Target", "Seeded", "With links", "Last run", ""]) head.append(el("th", null, h));
+    for (const h of ["Area", "Target", "Seeded", "With links", "Last run", "Free loading", ""]) head.append(el("th", null, h));
     const thead = el("thead");
     thead.append(head);
     const tbody = el("tbody");
     for (const a of seeding.areas || []) {
       const tr = el("tr", a.active ? null : "faded-row");
       tr.append(el("th", null, a.label + (a.active ? "" : " (off)")), el("td", null, num(a.target)), el("td", null, num(a.seeded)),
-        el("td", null, num(a.with_links)), el("td", null, a.last_run_at ? day(a.last_run_at) : "–"));
+        el("td", null, num(a.with_links)), el("td", null, a.last_run_at ? day(a.last_run_at) : "–"),
+        freeLoadingCell(a));
       const actions = el("td");
       actions.append(
         button("Target", null, () => {
@@ -1283,6 +1328,7 @@
     const scroller = el("div", "table-scroll");
     scroller.append(t);
     sd.append(scroller);
+    if (!bg.loading) sd.append(el("p", "muted", "Couldn't load the free loading counts."));
     const add = el("form", "link-form");
     const label = el("input");
     label.type = "text"; label.placeholder = "Area, e.g. Wheaton, IL"; label.maxLength = 120; label.required = true; label.setAttribute("aria-label", "Area");
@@ -1298,7 +1344,10 @@
       if (!Number.isInteger(n) || n < 1) return bgSay("The target must be a whole number of 1 or more.", true);
       bgChange("save_seed_area", { label: label.value.trim(), target: n, active: true }, "Area added.");
     });
-    sd.append(el("p", "muted", "Adding an area spends nothing. \"Seed…\" shows what a run could cost before anything is spent."), add);
+    sd.append(el("p", "muted", "Adding an area spends nothing. Free loading: \"Import places\" has the Studio take the town's " +
+      "restaurants from Overture's free map data, then \"Pre-read…\" has it read their menus in advance. Both are free: " +
+      "no Google, no Claude. Chain locations share their chain's menu and are skipped. \"Seed…\" is the paid Google way " +
+      "and shows what a run could cost before anything is spent."), add);
     if (bg.seed) sd.append(seedCard());
     parts.push(sd);
 
