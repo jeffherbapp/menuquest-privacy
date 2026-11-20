@@ -127,15 +127,20 @@
         ["added by users", get(d, "restaurants.added.total")],
         ["in the library", get(d, "restaurants.library_places")],
         ["with a menu ready", get(d, "restaurants.with_menu")],
+        ["pre-loaded from Overture", get(d, "restaurants.preloaded.overture")],
+        ["of those, added since", get(d, "restaurants.preloaded.overture_attached")],
+        ["chain menus", get(d, "restaurants.preloaded.chains")],
       ], [["Added by users", get(d, "restaurants.added")]],
-        "\"Added\" counts restaurants a user added first; adding one already in the library doesn't count again."),
-      card("Menus", [["shared menus", get(d, "menus.shared_menus")]], [
+        "\"Added\" counts restaurants a user added first; adding one already in the library doesn't count again. " +
+        "Pre-loaded places (Overture pre-reads and chain menus) are counted apart: nobody sees them until someone adds the restaurant."),
+      card("Menus", [["shared menus", get(d, "menus.shared_menus")], ["pre-loaded menus", get(d, "menus.preloaded_menus")]], [
         ["Website lookups", get(d, "menus.website_reads")],
         ["Photo scans", get(d, "menus.photo_scans")],
         ["New website menus", get(d, "menus.new_shared.website")],
         ["New scanned menus", get(d, "menus.new_shared.scan")],
+        ["New pre-loaded menus", get(d, "menus.new_shared.preloaded")],
         ["New menu versions", get(d, "menus.new_versions")],
-      ], "Lookups and scans are requests from the app, including ones answered from a saved menu. Menu versions are the background reader's."),
+      ], "Lookups and scans are requests from the app, including ones answered from a saved menu. Menu versions are the background reader's. Pre-loaded menus are the Mac Studio's free reads of Overture places and chains."),
     );
     const at = d && d.generated_at ? new Date(d.generated_at) : null;
     $("dash-status").textContent = at ? "Updated " + at.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + ". Days are UTC days." : "";
@@ -411,6 +416,13 @@
     return el("span", "pill " + (kind || "off"), text);
   }
 
+  // A13: a Google place someone added, an Overture pre-read ("ov:…") or a chain's menu file ("chain:…").
+  function placeKind(id) {
+    const s = String(id || "");
+    return s.startsWith("ov:") ? "overture" : s.startsWith("chain:") ? "chain" : "google";
+  }
+  const KIND_BADGE = { overture: "Overture pre-read", chain: "Chain menu" };
+
   function libSay(text, isError) {
     $("lib-status").className = "status" + (isError ? " err" : "");
     $("lib-status").textContent = text || "";
@@ -454,7 +466,7 @@
 
   function renderLibrary(d, queue) {
     const counts = Object.assign({}, d.counts || {}, { review: lib.reviewCount });
-    const filters = [["review", "Review"], ["flagged", "Flagged"], ["short", "Short"], ["reported", "Reported"], ["hidden", "No menu"], ["all", "All"]];
+    const filters = [["review", "Review"], ["flagged", "Flagged"], ["short", "Short"], ["reported", "Reported"], ["hidden", "No menu"], ["preloaded", "Pre-loaded"], ["all", "All"]];
     $("lib-filters").replaceChildren(...filters.map(([key, label]) => {
       const b = button(label + " " + num(counts[key]), "chip" + (key === "review" && counts.review > 0 ? " attention" : ""), () => { lib.filter = key; loadLibrary(); });
       b.setAttribute("aria-pressed", String(lib.filter === key));
@@ -462,6 +474,8 @@
     }));
     if (lib.filter === "review") return renderQueue(queue);
     const items = Array.isArray(d.items) ? d.items : [];
+    lib.attached = {};
+    for (const it of items) if (it.attached_to) lib.attached[it.place_id] = it.attached_to;
     libSay(items.length ? "" : "Nothing here." + (lib.query ? " Try another search." : ""));
     $("lib-items").replaceChildren(...items.map((it) => {
       const li = el("li");
@@ -469,11 +483,14 @@
       row.type = "button";
       const top = el("span", "lib-name", it.name || it.place_id);
       const tags = el("span", "lib-tags");
+      const kind = it.kind || placeKind(it.place_id);
+      if (KIND_BADGE[kind]) tags.append(badge(KIND_BADGE[kind], "on"));
+      if (it.attached_to) tags.append(badge("Added since", "on"));
       if (it.short) tags.append(badge("Short", "off"));
       if (it.reports > 0) tags.append(badge(it.reports + " report" + (it.reports === 1 ? "" : "s"), "off"));
-      if (it.no_menu) tags.append(badge("No visible menu", "off"));
+      if (it.no_menu && !it.attached_to) tags.append(badge("No visible menu", "off"));
       const meta = el("span", "lib-meta", it.no_menu
-        ? (it.versions + " hidden version" + (it.versions === 1 ? "" : "s"))
+        ? (it.attached_to ? "Its menu was copied to the restaurant someone added" : it.versions + " hidden version" + (it.versions === 1 ? "" : "s"))
         : num(it.item_count) + " dishes · " + (it.source === "scan" ? "photo scan" : "website") + " · " + day(it.saved_at) +
           (it.versions > 1 ? " · " + it.versions + " versions" : "") + " · " + num(it.links) + " link" + (it.links === 1 ? "" : "s"));
       row.append(top, tags, meta);
@@ -615,6 +632,15 @@
     if (d.website) sub.append(outLink(d.website, d.website), document.createTextNode(" · "));
     sub.append(document.createTextNode("place " + d.place_id));
     head.append(sub);
+    const kind = placeKind(d.place_id);
+    const attached = lib.attached && lib.attached[d.place_id];
+    if (kind === "overture") {
+      const p = el("p", "muted", "Pre-loaded from Overture by the Mac Studio. Nobody sees this menu until someone adds the restaurant; then it's copied to their restaurant.");
+      if (attached) p.append(document.createTextNode(" "), button("Open the restaurant it was copied to", "link-button", () => openMenu(attached, null)));
+      head.append(p);
+    } else if (kind === "chain") {
+      head.append(el("p", "muted", "A chain's menu file. Each location someone adds gets its own copy; the copies are refreshed when the chain is read again (monthly)."));
+    }
     parts.push(head);
     if (lib.review && lib.review.place_id === lib.place) parts.push(reviewCard());
 
@@ -753,6 +779,7 @@
     const d = lib.data || {};
     const ok = window.confirm("Read " + (d.name || "this menu") + " again?\n\n" +
       "This asks Claude to read the menu pages: about " + usd(d.reread_estimate_usd) + ", counted with background spending.\n" +
+      (placeKind(d.place_id) !== "google" ? "The Mac Studio reads pre-loaded menus for free in the background; this uses paid Claude instead.\n" : "") +
       "Nothing changes for testers until you save the result. It can take up to two minutes.");
     if (!ok) return;
     const buttons = $("lib-detail").querySelectorAll("button");
@@ -778,8 +805,13 @@
 
   async function saveReread() {
     const p = lib.preview || {};
+    const kind = placeKind(lib.place);
+    const who = kind === "chain"
+      ? " in the chain's menu file. Locations added from now on get it; ones already added keep their copy until the chain's next monthly read.\n"
+      : kind === "overture" ? ". Nobody sees it until someone adds this restaurant.\n"
+      : " for every tester, from their next refresh or add.\n";
     const ok = window.confirm("Make this the live menu?\n\n" +
-      num(p.newItems) + " dishes replace " + num(p.liveItems) + " for every tester, from their next refresh or add.\n" +
+      num(p.newItems) + " dishes replace " + num(p.liveItems) + who +
       "The current menu is kept: hide the new version to bring it back.");
     if (!ok) return;
     if (await libChange("save_reread", { placeId: lib.place, confirm: true }, "Saved. It's the live menu now.")) lib.preview = null;
