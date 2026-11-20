@@ -1135,13 +1135,14 @@
     bg.loaded = true;
     bgSay("Loading…");
     try {
-      const [res, studio, checks, reads, loading] = await Promise.all([callApi("background"), callApi("studio"), callApi("checks"), callApi("studio_reads"), callApi("area_loading")]);
+      const [res, studio, checks, reads, chains, loading] = await Promise.all([callApi("background"), callApi("studio"), callApi("checks"), callApi("studio_reads"), callApi("chains"), callApi("area_loading")]);
       if (res.status === 401 || studio.status === 401) return route();
       if (res.status === 403 || studio.status === 403) return show("denied");
       if (res.status !== 200) return bgSay("Couldn't load background work (" + res.status + ").", true);
       bg.data = res.body;
       bg.studio = studio.status === 200 ? studio.body : null;
       bg.studioReads = reads.status === 200 ? reads.body : null;
+      bg.chains = chains.status === 200 ? chains.body : null;
       bg.checks = checks.status === 200 ? checks.body : null;
       bg.loading = loading.status === 200 ? loading.body : null;
       bgSay("");
@@ -1350,6 +1351,7 @@
       "and shows what a run could cost before anything is spent."), add);
     if (bg.seed) sd.append(seedCard());
     parts.push(sd);
+    if (bg.chains) parts.push(chainsCard(bg.chains));
 
     // Queue
     const q = el("section", "card costs-card");
@@ -1592,6 +1594,79 @@
     }
     t.append(thead, tbody);
     card.append(el("p", "muted", "The Studio's recent menus. Allergens are checked the first time someone opens one."), t);
+  }
+
+  // Chains C4: each chain is read once and its menu used for every location. Approve or ignore the
+  // ones found, give a chain its menu page or file (often a menu or nutrition PDF), read it.
+  function chainsCard(list) {
+    const card = el("section", "card costs-card");
+    card.append(el("h2", null, "Chains"));
+    card.append(el("p", "muted", "Found among imported places (store-locator websites, or one website and name at several places). " +
+      "An approved chain is read once on the Studio, without prices, and every location gets that menu when someone adds it. " +
+      "Menus under 15 dishes aren't used. A chain's menu page or file is often a menu or nutrition PDF; chains rename those every season, " +
+      "so a missing one is flagged here."));
+    const row = el("div", "button-row");
+    row.append(button("Read approved chains' menus", "button small", () =>
+      bgChange("read_chains", {}, "Queued: the Studio reads approved chains whose menu is missing or a month old.")));
+    row.append(button("Add a chain…", null, () => {
+      const key = (window.prompt("The chain's main website, like wendys.com:") || "").trim().toLowerCase().replace(/^https?:\/\/(www\.)?/, "").replace(/\/.*$/, "");
+      if (!key) return;
+      const name = (window.prompt("Its name, like Wendy's:") || "").trim();
+      if (!name) return;
+      bgChange("set_chain", { key, name, status: "approved" }, name + " added and approved.");
+    }));
+    card.append(row);
+    if (!list.length) {
+      card.append(el("p", "muted", "No chains yet. They're found after each Overture import."));
+      return card;
+    }
+    const t = el("table", "periods");
+    const hr = el("tr");
+    for (const h of ["Chain", "Locations", "Menu", ""]) hr.append(el("th", null, h));
+    const thead = el("thead");
+    thead.append(hr);
+    const tbody = el("tbody");
+    for (const c of list) {
+      const tr = el("tr");
+      const name = el("td");
+      name.append(el("strong", null, c.name), el("div", "muted", c.key + " · " + (c.detected_by === "store_locator" ? "store locator" : c.detected_by === "shared_site" ? "shared website" : "added by hand")));
+      name.append(badge(c.status === "approved" ? "Approved" : c.status === "ignored" ? "Not a chain" : "Found", c.status === "approved" ? "on" : "off"));
+      const menu = el("td");
+      if (c.menu_missing_at) menu.append(el("div", "bad", "Needs a new menu file (the saved one is gone)"));
+      if (c.reading) menu.append(el("div", null, "Reading…"));
+      if (c.menu) {
+        menu.append(el("div", c.menu.dishes < 15 ? "bad" : null, num(c.menu.dishes) + " dishes · read " + when(c.menu.read_at) +
+          (c.menu.dishes < 15 ? " · too few to use" : "") + " · allergens " + (c.menu.allergens_checked ? "checked" : "not yet")));
+      } else if (!c.reading) {
+        menu.append(el("div", "muted", c.status === "approved" ? "Not read yet" : "—"));
+      }
+      if (c.menu_url) {
+        const a = el("a", "muted", c.menu_url.length > 60 ? c.menu_url.slice(0, 57) + "…" : c.menu_url);
+        a.href = c.menu_url; a.target = "_blank"; a.rel = "noopener noreferrer";
+        menu.append(a);
+      }
+      const actions = el("td");
+      if (c.status !== "approved") {
+        actions.append(button("Approve", "button small", () => bgChange("set_chain", { key: c.key, status: "approved" }, c.name + " approved.")));
+      }
+      if (c.status !== "ignored") {
+        actions.append(button("Not a chain", null, () => bgChange("set_chain", { key: c.key, status: "ignored" }, c.name + " is treated as separate restaurants.")));
+      }
+      actions.append(button("Menu page or file…", null, () => {
+        const url = (window.prompt("The address of " + c.name + "'s national menu page or file (PDF):", c.menu_url || "") || "").trim();
+        if (!url) return;
+        if (!/^https?:\/\//i.test(url)) return bgSay("That needs to be a web address (http or https).", true);
+        bgChange("set_chain", { key: c.key, status: c.status === "ignored" ? "approved" : c.status, menuUrl: url }, "Menu page saved for " + c.name + ". Use \"Read approved chains' menus\" to read it.");
+      }));
+      if (c.status === "approved") {
+        actions.append(button("Read now", null, () => bgChange("read_chains", { keys: [c.key] }, "Queued: the Studio reads " + c.name + "'s menu.")));
+      }
+      tr.append(name, el("td", null, num(c.locations)), menu, actions);
+      tbody.append(tr);
+    }
+    t.append(thead, tbody);
+    card.append(t);
+    return card;
   }
 
   // A8b: estimate, then run.
