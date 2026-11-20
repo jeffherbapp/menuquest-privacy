@@ -1218,7 +1218,6 @@
     const d = bg.data || {};
     const sw = d.switches || {};
     const caps = d.caps || {};
-    const studio = (d.studio || [])[0];
     const parts = [];
 
     // Switches
@@ -1236,18 +1235,17 @@
       () => seedingOn ? bgChange("set_seeding", { on: false }, "Seeding is off.") : turnOnSeeding(),
     ));
     const freeOn = sw.studio_free_on === true;
-    const seen = studio && studio.last_seen_at ? "last seen " + when(studio.last_seen_at) : "not seen yet";
     s.append(switchRow(
-      "Mac Studio (free)",
-      "The Studio finds menu links for places whose website is already known, with no paid calls, even with everything else off. " +
-        (studio ? studio.name + " · " + (studio.model || "?") + " · " + seen + (studio.enabled ? "" : " · switched off") : "No Studio registered.") +
+      "Free work on the Macs",
+      "The Macs find menu links, read menus and import places, with no paid calls, even with everything else off. " +
+        ((d.studio || []).length ? (d.studio || []).map((m) => m.name + (m.enabled ? "" : " (off)")).join(" and ") : "No Mac registered.") +
         " · " + num(d.waiting_free) + " free job" + (d.waiting_free === 1 ? "" : "s") + " waiting.",
       freeOn, "On", "Off", freeOn ? "Turn off" : "Turn on",
-      () => bgChange("set_studio_free", { on: !freeOn }, freeOn ? "The Studio's free work is off." : "The Studio's free work is on."),
+      () => bgChange("set_studio_free", { on: !freeOn }, freeOn ? "Free work on the Macs is off." : "Free work on the Macs is on."),
     ));
     parts.push(s);
 
-    // A9b: the Mac Studio
+    // A9b: the Macs
     if (bg.studio) parts.push(studioCard(bg.studio));
     // A10: nightly checks
     if (bg.checks) parts.push(checksCard(bg.checks));
@@ -1457,79 +1455,90 @@
     return card;
   }
 
-  // A9b: the Mac Studio card.
+  // A9b: the Macs card (the Studio, and the MacBook overnight). Each Mac has its own on/off and
+  // quiet hours.
   const ZONES = ["America/Chicago", "America/New_York", "America/Denver", "America/Los_Angeles", "America/Phoenix", "UTC"];
+
+  /** One Mac: its state, its own on/off, and its own quiet hours (tucked away until changed). */
+  function macBox(w) {
+    const box = el("div", "mac-box");
+    const head = el("div", "mac-head");
+    const title = el("div", "switch-head");
+    const quietNow = w.quiet && w.quiet.now;
+    title.append(el("strong", null, w.name),
+      badge(!w.enabled ? "Off" : quietNow ? "Quiet hours" : w.online ? "Online" : "Offline", w.enabled && w.online && !quietNow ? "on" : "off"));
+    head.append(title, button(w.enabled ? "Turn off this Mac" : "Turn on this Mac", "button small" + (w.enabled ? " quiet" : ""), () =>
+      bgChange("set_studio_enabled", { workerId: w.id, enabled: !w.enabled },
+        w.enabled ? w.name + " is off: it takes no work." : w.name + " is on.")));
+    box.append(head);
+    box.append(el("p", "muted mac-meta", (w.model || "?") + " · runtime " + (w.runtime || "?") +
+      " · last seen " + (w.last_seen_at ? when(w.last_seen_at) : "never") + " · may do: " + (w.kinds || []).join(", ")));
+    if ((w.running || []).length) {
+      box.append(el("p", null, "Working on: " + w.running.map((j) => j.reason + " " + j.kind + " since " + when(j.since)).join("; ")));
+    }
+
+    // Quiet hours: one line; the form opens on "Change".
+    const q = w.quiet || {};
+    const quiet = el("details", "mac-quiet");
+    const summary = el("summary");
+    summary.append(el("span", null, "Quiet hours: " + (q.start
+      ? "every day " + q.start + "–" + q.end + " (" + q.tz.replace("America/", "").replace("_", " ") + "). No new work then; a job it has finishes."
+      : "none, takes work any time.")), el("span", "mac-change", q.start ? "Change" : "Set"));
+    quiet.append(summary);
+    const form = el("form", "caps-form");
+    const time = (labelText, value) => {
+      const wrap = el("label", "cap-field");
+      const input = el("input");
+      input.type = "time"; input.value = value || ""; input.step = "300";
+      wrap.append(el("span", null, labelText), input);
+      return { wrap, input };
+    };
+    const start = time("From", q.start);
+    const end = time("To", q.end);
+    const zoneWrap = el("label", "cap-field");
+    const zone = el("select");
+    const zones = ZONES.includes(q.tz) || !q.tz ? ZONES : [q.tz, ...ZONES];
+    for (const z of zones) {
+      const o = el("option", null, z.replace("America/", "").replace("_", " "));
+      o.value = z;
+      zone.append(o);
+    }
+    zone.value = q.tz || "America/Chicago";
+    zoneWrap.append(el("span", null, "Time zone"), zone);
+    const save = el("button", "button small", "Save");
+    save.type = "submit";
+    form.append(start.wrap, end.wrap, zoneWrap, save);
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const a = start.input.value.slice(0, 5);
+      const b = end.input.value.slice(0, 5);
+      if (!a || !b) return bgSay("Pick both a start and an end, or use \"No quiet hours\".", true);
+      if (a === b) return bgSay("The start and end need to be different.", true);
+      bgChange("set_quiet_hours", { workerId: w.id, start: a, end: b, tz: zone.value }, "Quiet hours saved for " + w.name + ".");
+    });
+    quiet.append(form);
+    if (q.start) {
+      quiet.append(button("No quiet hours", null, () =>
+        bgChange("set_quiet_hours", { workerId: w.id, start: null, end: null, tz: q.tz || "America/Chicago" }, "Quiet hours removed for " + w.name + ".")));
+    }
+    box.append(quiet);
+    return box;
+  }
 
   function studioCard(st) {
     const card = el("section", "card costs-card");
-    card.append(el("h2", null, "Mac Studio"));
-    const workers = st.workers || [];
+    card.append(el("h2", null, "Macs"));
+    const workers = (st.workers || []).slice().sort((x, y) =>
+      (x.device === "studio" ? 0 : 1) - (y.device === "studio" ? 0 : 1) || String(x.name).localeCompare(String(y.name)));
     if (!workers.length) {
-      card.append(el("p", "muted", "No Studio is registered."));
+      card.append(el("p", "muted", "No Mac is registered."));
       return card;
     }
-    for (const w of workers) {
-      const head = el("div", "switch-head");
-      head.append(el("strong", null, w.name),
-        badge(!w.enabled ? "Off" : w.quiet && w.quiet.now ? "Quiet hours" : w.online ? "Online" : "Offline", w.enabled && w.online && !(w.quiet && w.quiet.now) ? "on" : "off"));
-      card.append(head);
-      card.append(el("p", "muted", (w.model || "?") + " · runtime " + (w.runtime || "?") + " · " + (w.device || "") +
-        " · last seen " + (w.last_seen_at ? when(w.last_seen_at) : "never") + " · may do: " + (w.kinds || []).join(", ")));
-      if ((w.running || []).length) {
-        card.append(el("p", null, "Working on: " + w.running.map((j) => j.reason + " " + j.kind + " since " + when(j.since)).join("; ")));
-      }
-      const row = el("div", "button-row");
-      row.append(button(w.enabled ? "Turn the Studio off" : "Turn the Studio on", "button small" + (w.enabled ? " quiet" : ""), () =>
-        bgChange("set_studio_enabled", { workerId: w.id, enabled: !w.enabled }, w.enabled ? "The Studio is off: it takes no work." : "The Studio is on.")));
-      card.append(row);
-
-      // Quiet hours
-      const q = w.quiet || {};
-      card.append(el("h3", null, "Quiet hours"));
-      card.append(el("p", "muted", q.start
-        ? "Every day " + q.start + "–" + q.end + " (" + q.tz + "): the Studio gets no work. A job it already has finishes."
-        : "None. The Studio can take work any time."));
-      const form = el("form", "caps-form");
-      const time = (labelText, value) => {
-        const wrap = el("label", "cap-field");
-        const input = el("input");
-        input.type = "time"; input.value = value || ""; input.step = "300";
-        wrap.append(el("span", null, labelText), input);
-        return { wrap, input };
-      };
-      const start = time("From", q.start);
-      const end = time("To", q.end);
-      const zoneWrap = el("label", "cap-field");
-      const zone = el("select");
-      const zones = ZONES.includes(q.tz) || !q.tz ? ZONES : [q.tz, ...ZONES];
-      for (const z of zones) {
-        const o = el("option", null, z.replace("America/", "").replace("_", " "));
-        o.value = z;
-        zone.append(o);
-      }
-      zone.value = q.tz || "America/Chicago";
-      zoneWrap.append(el("span", null, "Time zone"), zone);
-      const save = el("button", "button small", "Save");
-      save.type = "submit";
-      form.append(start.wrap, end.wrap, zoneWrap, save);
-      form.addEventListener("submit", (e) => {
-        e.preventDefault();
-        const a = start.input.value.slice(0, 5);
-        const b = end.input.value.slice(0, 5);
-        if (!a || !b) return bgSay("Pick both a start and an end, or use \"No quiet hours\".", true);
-        if (a === b) return bgSay("The start and end need to be different.", true);
-        bgChange("set_quiet_hours", { workerId: w.id, start: a, end: b, tz: zone.value }, "Quiet hours saved.");
-      });
-      card.append(form);
-      if (q.start) {
-        card.append(button("No quiet hours", null, () =>
-          bgChange("set_quiet_hours", { workerId: w.id, start: null, end: null, tz: q.tz || "America/Chicago" }, "Quiet hours removed.")));
-      }
-    }
+    for (const w of workers) card.append(macBox(w));
 
     // Recent work
     const r = st.recent || {};
-    card.append(el("h3", null, "Recent work"));
+    card.append(el("h3", null, "Recent work (both Macs)"));
     const t = el("table", "periods");
     const head = el("tr");
     for (const h of ["", "Done", "Failed", "Avg time"]) head.append(el("th", null, h));
@@ -1544,7 +1553,7 @@
     }
     t.append(thead, tbody);
     card.append(t, el("p", "muted", num(r.waiting) + " waiting · last finished " + (r.last_finished_at ? when(r.last_finished_at) : "never") +
-      ". Average time is what the Studio reports per job (quality-test reads take longest)."));
+      ". Average time is what the Macs report per job (quality-test reads take longest)."));
     if (bg.studioReads) studioReadsPart(card, bg.studioReads);
     return card;
   }
