@@ -259,3 +259,7 @@
 .fb-message { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 16px; margin: 8px 0 !important; color: var(--ink) !important; }
 #tab-feedback .button.small { width: auto; }
 #tab-feedback #fb-filters { margin-top: 16px; }
+
+/* F4: an area's free loading in the Seed areas table. */
+.free-loading { min-width: 220px; font-size: 13px; line-height: 1.45; }
+.free-loading > div + div { margin-top: 2px; }
