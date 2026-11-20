@@ -1819,7 +1819,7 @@
 
   const users = { loaded: false, filter: "active7", query: "", items: [], total: 0, id: null };
   const KIND = { anonymous: "Anonymous install", apple: "Sign in with Apple", email: "Email", other: "Other" };
-  const FEATURE_NAMES = { trip_mode: "Trip Mode" };
+  const FEATURE_NAMES = { trip_mode: "Trip Mode", table_sharing: "Invite to my table" };
 
   function usersSay(text, isError) {
     $("users-status").className = "status" + (isError ? " err" : "");
