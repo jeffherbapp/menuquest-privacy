@@ -14,7 +14,7 @@
 <meta name="theme-color" content="#171311" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="/assets/favicon.png">
 <link rel="stylesheet" href="/assets/site.css?v=3">
-<link rel="stylesheet" href="/admin/admin.css?v=18">
+<link rel="stylesheet" href="/admin/admin.css?v=19">
 </head>
 <body>
 <header class="site-header">
@@ -105,6 +105,7 @@
       <button type="button" class="tab" data-tab="menus" aria-pressed="false">Menus</button>
       <button type="button" class="tab" data-tab="tests" aria-pressed="false">Tests</button>
       <button type="button" class="tab" data-tab="background" aria-pressed="false">Background</button>
+      <button type="button" class="tab" data-tab="research" aria-pressed="false">To research</button>
       <button type="button" class="tab" data-tab="trips" aria-pressed="false">Trips</button>
       <button type="button" class="tab" data-tab="users" aria-pressed="false">Users</button>
       <button type="button" class="tab" data-tab="feedback" aria-pressed="false">Feedback</button>
@@ -193,6 +194,13 @@
       <button type="button" class="link-button" id="fb-more" hidden>Show more</button>
     </div>
 
+    <!-- R3: pre-read places the Macs couldn't read, to look up by hand. -->
+    <div id="tab-research" hidden>
+      <div id="rs-controls"></div>
+      <p class="status" id="rs-status" role="status"></p>
+      <div id="rs-items"></div>
+    </div>
+
     <div id="tab-trips" hidden>
       <p class="status" id="trip-status" role="status"></p>
       <div id="trip-access"></div>
@@ -203,7 +211,8 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous"></script>
-<script src="/admin/admin.js?v=20"></script>
+<script src="/admin/admin.js?v=21"></script>
 <script src="/admin/trips.js?v=11"></script>
+<script src="/admin/research.js?v=1"></script>
 </body>
 </html>

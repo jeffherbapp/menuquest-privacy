@@ -83,7 +83,8 @@
 
 /* Tabs and the menu library (A6) */
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.tabs { display: flex; gap: 6px; margin: 14px 0 4px; border-bottom: 1px solid var(--rule); }
+.tabs { display: flex; gap: 6px; margin: 14px 0 4px; border-bottom: 1px solid var(--rule); overflow-x: auto; }
+.tab { white-space: nowrap; }
 .tab { font: 600 15px var(--sans); color: var(--ink-soft); background: none; border: 0; border-bottom: 2px solid transparent;
        padding: 10px 12px; cursor: pointer; margin-bottom: -1px; }
 .tab[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--accent); }
@@ -274,3 +275,23 @@
 .mac-quiet summary::-webkit-details-marker { display: none; }
 .mac-change { color: var(--accent); font-weight: 600; }
 .mac-quiet[open] .mac-change { display: none; }
+
+/* To research (R3) */
+.rs-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0 10px; }
+.rs-head select, .rs-mark { font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--rule);
+                             border-radius: 12px; padding: 9px 12px; max-width: 100%; }
+.rs-head .button.small { width: auto; font-size: 15px; padding: 9px 14px; }
+.rs-head .button.quiet { background: transparent; color: var(--ink); border: 1px solid var(--rule); }
+.rs-card { margin: 10px 0; }
+.rs-name { font-size: 17px; overflow-wrap: anywhere; }
+.card > p.rs-next { color: var(--ink); font-size: 15px; margin: 6px 0; }
+.rs-label { font-size: 13px; font-weight: 600; color: var(--ink-soft); margin: 8px 0 2px; }
+.card > p.rs-label { margin: 8px 0 2px; }
+.rs-tried { margin: 0 0 6px; padding-left: 18px; font-size: 14px; overflow-wrap: anywhere; }
+.card > p.rs-look { font-size: 14px; margin: 8px 0; }
+.rs-actions { border-top: 1px solid var(--rule); margin-top: 10px; padding-top: 10px; }
+.card form.rs-link { flex-direction: row; gap: 8px; margin-bottom: 8px; }
+.rs-link input { flex: 1; min-width: 0; font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--rule);
+                 border-radius: 12px; padding: 10px 12px; }
+.card .rs-link .button.small { width: auto; }
+.rs-actions .button-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
