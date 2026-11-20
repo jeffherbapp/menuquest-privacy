@@ -435,6 +435,8 @@
     $("tab-tests").hidden = name !== "tests";
     $("tab-background").hidden = name !== "background";
     if (name === "background" && !bg.loaded) loadBackground();
+    $("tab-research").hidden = name !== "research";
+    if (name === "research" && window.MQResearch) window.MQResearch.open();
     $("tab-trips").hidden = name !== "trips";
     $("tab-users").hidden = name !== "users";
     $("tab-feedback").hidden = name !== "feedback";
@@ -1241,6 +1243,10 @@
         if (!Number.isInteger(n) || n < 1 || n > 1000) return bgSay("Enter a whole number from 1 to 1,000.", true);
         bgChange("preread_area", { areaId: area.id, limit: n }, "Queued for the Studio. Menus come in as it reads them.");
       }));
+    }
+    if (f.failed > 0) {
+      actions.append(document.createTextNode(" · "));
+      actions.append(button("To research", null, () => { showTab("research"); if (window.MQResearch) window.MQResearch.open(area.id); }));
     }
     td.append(actions);
     return td;
