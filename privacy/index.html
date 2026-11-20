@@ -28,7 +28,7 @@
 <p class="date">Effective November 19, 2026</p>
 
 <p class="summary"><strong>The short version:</strong> MenuQuest has no ads or tracking, and signing in is optional.
-Your restaurants, ratings, notes, and trips stay on your device and in your own iCloud.
+Your restaurants, ratings, notes, trips and reservations stay on your device and in your own iCloud.
 A few things leave your device to make features work: menu photos you choose to scan
 (passed to Anthropic to read the menu), and restaurant searches and, if you allow it, your
 location (passed to Google to find restaurants). These go through MenuQuest's server, which
@@ -57,6 +57,15 @@ must-go suggestions for your taste are worked out on your device. If you share a
 other people, its plan is also kept on MenuQuest's server; see <a href="#shared-trips">Shared
 trips</a>.</p>
 
+<p>Reservations you plan stay on your device and in your private iCloud too: the restaurant,
+the day and time, how it was booked (for example OpenTable, Resy or walk-in), whether it's
+confirmed, a booking link and your note. A reservation's reminder is a notification set on
+your iPhone; it isn't sent anywhere. MenuQuest doesn't book anything. The Dining Calendar is
+put together on your device from the meals you logged, your reservations, the tables you're at
+and your trips; nothing is copied anywhere for it. If you invite people to your table, that
+reservation is also kept on MenuQuest's server; see <a href="#shared-tables">Shared
+tables</a>.</p>
+
 <p>Meal nudges (“Mark what you tried” and “How was it?”) are notifications set on your
 iPhone when MenuQuest sees you at one of your restaurants. The restaurant and when you were
 there stay on your device for a few hours to time them; they aren't sent anywhere. You can
@@ -65,8 +74,8 @@ turn them off in Settings → Notifications.</p>
 <h2>What leaves your device, and why</h2>
 <p>Requests go to MenuQuest's server (hosted by Supabase), which passes them on to the
 service that does the work and sends back the result. The server doesn't store your photos,
-searches, location, or trip destinations (except trips you choose to share; see
-<a href="#shared-trips">Shared trips</a>).</p>
+searches, location, or trip destinations (except trips and tables you choose to share; see
+<a href="#shared-trips">Shared trips</a> and <a href="#shared-tables">Shared tables</a>).</p>
 <table>
   <thead><tr><th>Data</th><th>Sent to</th><th>When and why</th></tr></thead>
   <tbody>
@@ -161,6 +170,31 @@ sharing deletes the server's copy; everyone keeps their own copy on their device
 trip removes you from it. Deleting your account removes you from every shared trip and deletes
 the server's copy of the trips you own.</p>
 
+<h2 id="shared-tables">Shared tables</h2>
+<p>A reservation stays private on your device and in your iCloud unless you tap “Invite to my
+table”. Inviting people and joining a table need a signed-in account.</p>
+<p>When you invite people to your table, or join one from an invite link, MenuQuest's server
+(Supabase) keeps one copy of it so everyone at the table can see it: the restaurant (its name,
+Google Place ID, address, map location and cuisine), the day, the reservation time and time
+zone, how it was booked, whether it's confirmed, the booking link, the host's note, and the
+people at the table (their account ID, the name each person chose to show, and who the host
+is). It also keeps the dishes people pin for the table (the dish's name, menu section and
+price, and who pinned it). Everyone at the table sees all of this, including the names of the
+others and who pinned each dish. Up to 8 people can be at a table.</p>
+<p>Only the host can change the table's details. Table pins belong to the table only: they
+never change the dishes you've tried, your ratings or your pinned restaurants. Your reminders,
+ratings, the dishes you mark off, and your notes on restaurants and dishes are never part of a
+shared table; they stay on your device and in your iCloud. Reminders you set on a table you
+joined are notifications on your iPhone and aren't sent anywhere. Your phone keeps a copy of
+the tables you're at so they show without a connection.</p>
+<p>The invite link holds a code that lets anyone with it see whose table it is, the restaurant,
+the day and time, and join it. The code is after the “#” in the link, so it isn't sent to the
+website. The host can make a new link at any time, which stops the old one working.</p>
+<p>The host can remove people (their pins go with them) or stop sharing. Stopping sharing, or
+deleting the reservation, deletes the server's copy and its pins; the host keeps their own
+reservation. Leaving a table removes you and your pins from it. Deleting your account removes
+you from every table and deletes the server's copy of the tables you host.</p>
+
 <h2 id="website">The MenuQuest website</h2>
 <p>menuquest.app has no ads, analytics, or tracking cookies. If you request a beta invite
 there, we store the email address and first name you enter, the date, and that it came from
@@ -192,9 +226,10 @@ feedback you choose to submit with the developer, as described in
 <a href="https://www.apple.com/legal/internet-services/itunes/testflight/sren/terms.html">TestFlight's terms</a>.</p>
 
 <h2>Deleting your data</h2>
-<p>You can delete any dish, restaurant, or trip in the app (deleting a trip also removes
-its meal plans and reminders; deleting a shared trip also leaves it, or stops sharing it if
-it's yours), and reset your taste answers (here and in
+<p>You can delete any dish, restaurant, trip or reservation in the app (deleting a trip also
+removes its meal plans and reminders; deleting a shared trip also leaves it, or stops sharing it
+if it's yours; deleting a shared reservation stops sharing its table), leave any table you
+joined, and reset your taste answers (here and in
 your iCloud) in Settings → Your tastes. Deleting the app removes its data from
 your device; to remove the iCloud copy, go to Settings → [your name] → iCloud → Manage
 Account Storage → MenuQuest → Delete Data.</p>
