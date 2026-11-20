@@ -263,3 +263,14 @@
 /* F4: an area's free loading in the Seed areas table. */
 .free-loading { min-width: 220px; font-size: 13px; line-height: 1.45; }
 .free-loading > div + div { margin-top: 2px; }
+
+/* The Macs card: one box per Mac. */
+.mac-box { border: 1px solid var(--rule); border-radius: 12px; padding: 12px 14px; margin: 12px 0; }
+.mac-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.mac-head .button.small { width: auto; }
+.mac-meta { margin: 6px 0 0; }
+.card details.mac-quiet { margin: 8px 0 0; font-size: 15px; }
+.mac-quiet summary { cursor: pointer; list-style: none; display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+.mac-quiet summary::-webkit-details-marker { display: none; }
+.mac-change { color: var(--accent); font-weight: 600; }
+.mac-quiet[open] .mac-change { display: none; }
