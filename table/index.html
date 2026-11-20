@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Table Invite</title>
+<meta name="description" content="You're invited to join a table in MenuQuest.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#faf5ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171311" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="/assets/favicon.png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/assets/site.css?v=3">
+<style>.invite .hint { color: var(--ink-soft); font-size: 15px; } .invite #open-wrap { margin: 24px 0 8px; }</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="/"><span class="mark" aria-hidden="true"></span>MenuQuest</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/#beta">Beta</a>
+      <a href="/support/">Support</a>
+      <a href="/privacy/">Privacy</a>
+    </nav>
+  </div>
+</header>
+
+<main class="narrow page invite">
+<h1>You're invited to a table</h1>
+<p>Someone invited you to their table in MenuQuest: a meal out together. Join to see when and where,
+who's coming, and pin the dishes you want to try.</p>
+
+<p id="open-wrap"><a class="button" id="open" href="menuquest://table">Open in MenuQuest</a></p>
+<p class="hint">On an iPhone with MenuQuest, this link usually opens the app by itself. If it opened
+here instead, tap the button.</p>
+
+<h2>Don't have MenuQuest yet?</h2>
+<p>MenuQuest is in beta on iPhone. <a href="/#beta">Ask for an invite</a>, install it, then tap the
+table link again.</p>
+
+<p class="hint">The table's code stays in this link on your phone; this page doesn't send it anywhere.</p>
+</main>
+<script>
+  // menuquest.app/table/#<code>: the code is after the #, so it never reaches the web server.
+  (function () {
+    var code = (location.hash || '').slice(1);
+    var open = document.getElementById('open');
+    if (/^[0-9a-f]{16}$/.test(code)) {
+      open.href = 'menuquest://table/' + code;
+    } else {
+      document.getElementById('open-wrap').textContent = "This link is missing its table code. Ask for the link again.";
+    }
+  })();
+</script>
+
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 MenuQuest</span>
+    <nav aria-label="Footer">
+      <a href="/support/">Support</a>
+      <a href="/privacy/">Privacy</a>
+      <a href="/menu-reader/">For restaurants</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>
