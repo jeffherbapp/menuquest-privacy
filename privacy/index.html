@@ -25,12 +25,13 @@
 
 <main class="narrow page">
 <h1>MenuQuest Privacy Policy</h1>
-<p class="date">Effective November 23, 2026</p>
+<p class="date">Effective November 24, 2026</p>
 
 <p class="summary"><strong>The short version:</strong> MenuQuest has no ads or tracking, and signing in is optional.
 Your restaurants, ratings, notes, trips and reservations stay on your device and in your own iCloud.
 A few things leave your device to make features work: menu photos you choose to scan
-(passed to Anthropic to read the menu), and restaurant searches and, if you allow it, your
+(passed to Anthropic to read the menu), the text of a hard-to-read receipt if you ask for
+help reading it (never the photo, and never prices or payment details), and restaurant searches and, if you allow it, your
 location (passed to Google to find restaurants). These go through MenuQuest's server, which
 knows your app only by a random ID and doesn't keep what you send. None of it is tied to
 your identity.</p>
@@ -43,6 +44,13 @@ for MenuQuest, the same data syncs through your private iCloud database so it's 
 and available on your other devices. That data is stored by Apple under
 <a href="https://www.apple.com/legal/privacy/">Apple's privacy policy</a>; the MenuQuest
 developer cannot access it.</p>
+
+<p>Receipts you scan are read on your device. The photo is deleted once it's read, unless
+you turn on “Save photos I take to Photos.” Prices, totals, tax, tip and card or payment
+details are left out as the receipt is read and are never kept. What's kept, on your device
+and in your private iCloud, is only what you confirm: the dishes you mark off for that day,
+any lines you keep with the visit to match to the menu later, and a short code made from the
+receipt's date and items so MenuQuest can tell you if you scan the same receipt twice.</p>
 
 <p>The same goes for your taste answers: the taste quiz, the allergies and diet you choose,
 foods you'll never order, and what you tell MenuQuest about dishes you rated. They're used on
@@ -83,6 +91,9 @@ searches, location, or trip destinations (except trips and tables you choose to 
     <tr><td>Menu photos, and the text your device reads from them</td>
         <td>MenuQuest's server → Anthropic (Claude API)</td>
         <td>Only when you tap “Read menu,” to turn the photos into a list of sections and dishes.</td></tr>
+    <tr><td>The text of a receipt (never the photo)</td>
+        <td>MenuQuest's server → Anthropic (Claude API)</td>
+        <td>Only if your iPhone couldn't read a receipt well and you tap “Read it with AI,” to pick out the items. Prices, totals, tax, tip, and card or payment lines are removed on your device before anything is sent, and the server removes anything that still looks like card or payment details. Not stored; nothing is marked off until you choose the dishes and save.</td></tr>
     <tr><td>Restaurant search text</td>
         <td>MenuQuest's server → Google (Places API)</td>
         <td>Only when you search while adding a restaurant, to find and verify it.</td></tr>
@@ -224,8 +235,10 @@ and to guess the restaurant you're at with Apple Maps. You can say no and search
 or change this anytime in Settings › Privacy &amp; Security › Location Services.</p>
 
 <h2>Camera and photos</h2>
-<p>MenuQuest asks for camera access so you can photograph menus, and lets you pick photos
-from your library. It only receives the photos you take or select.</p>
+<p>MenuQuest asks for camera access so you can photograph menus and receipts, and lets you
+pick photos from your library. It only receives the photos you take or select. If you turn on
+“Save photos I take to Photos” when scanning a receipt, it asks to add photos to your library
+and saves only the receipt photos you take there; it can't see the rest of your library.</p>
 
 <h2>Beta testing</h2>
 <p>If you test MenuQuest through Apple's TestFlight, Apple may share crash reports and any
