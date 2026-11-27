@@ -1205,6 +1205,89 @@
     }
   }
 
+  // G0: the one-off Google quality probe. Counts only; the answer lives in this page until it's
+  // reloaded, and the server keeps nothing from Google either.
+  let probeResult = null;
+
+  function googleProbeCard() {
+    const c = el("section", "card costs-card");
+    c.append(el("h2", null, "Google quality probe (G0)"));
+    c.append(el("p", "muted", "Looks up 20 restaurants that have an MQ menu (up to 10 in Glen Ellyn and Lombard, the rest " +
+      "from the curated cities) with Google Place Details: rating, review count and review summary. It shows only counts: " +
+      "how many pass 4.3 stars and 200 reviews, and how often the summary names a dish on our menu. Nothing from Google is " +
+      "saved. 20 calls fit in Google's free 1,000 a month, so the real cost is $0 (the spending log counts about $0.40 " +
+      "at list price against the caps). It runs once; a second run within 7 days asks again."));
+    const run = el("button", "button small", "Run probe (20 Google calls)…");
+    run.type = "button";
+    run.addEventListener("click", () => runGoogleProbe(false));
+    c.append(run);
+    if (probeResult) c.append(probeTable(probeResult));
+    return c;
+  }
+
+  async function runGoogleProbe(again) {
+    const ok = window.confirm((again ? "Run the probe again?" : "Run the Google probe?") + "\n\n" +
+      "20 Google Place Details calls (rating, review count, review summary). $0 within Google's free tier. " +
+      "Only counts are shown; nothing is saved.");
+    if (!ok) return;
+    bgSay("Asking Google about 20 restaurants…");
+    try {
+      const res = await callApi("google_probe", again ? { confirm: true, again: true } : { confirm: true });
+      if (res.status === 401) return route();
+      const err = res.body && res.body.error;
+      if (res.status === 409 && err && err.code === "already_ran") {
+        bgSay("");
+        return runGoogleProbe(true);
+      }
+      if (res.status !== 200) return bgSay((err && err.message) || "That didn't work (" + res.status + ").", true);
+      probeResult = res.body;
+      renderBackground();
+      bgSay("Probe done: " + num(probeResult.counts && probeResult.counts.answered) + " of " +
+        num(probeResult.counts && probeResult.counts.asked) + " answered.");
+    } catch (e) {
+      console.error(e);
+      bgSay("Couldn't reach the server. Nothing was run.", true);
+    }
+  }
+
+  function probeTable(r) {
+    const k = r.counts || {};
+    const wrap = el("div");
+    const rows = [
+      ["Restaurants asked", k.asked],
+      ["… in Glen Ellyn / Lombard", k.localAsked],
+      ["… in curated cities", k.citiesAsked],
+      ["Groups (towns and cities)", k.groups],
+      ["Google answered", k.answered],
+      ["No answer", k.noAnswer],
+      ["Pass 4.3★ and 200 reviews", k.passBar],
+      ["… local", k.passBarLocal],
+      ["… cities", k.passBarCities],
+      ["Have a review summary", k.withSummary],
+      ["Summary names a dish on our menu", k.summaryNamesDish],
+      ["… a two-word-or-longer dish", k.summaryNamesSpecificDish],
+      ["Dish names found in all summaries", k.dishMentions],
+    ];
+    const t = el("table", "periods money");
+    const tb = el("tbody");
+    for (const [label, v] of rows) {
+      const tr = el("tr");
+      tr.append(el("th", null, label), el("td", null, num(v)));
+      tb.append(tr);
+    }
+    t.append(tb);
+    wrap.append(el("h3", null, "Results"), t);
+    for (const [title, obj] of [["Stars", k.stars], ["Review counts", k.reviews]]) {
+      wrap.append(el("h3", null, title));
+      const ul = el("ul", "plain-list");
+      for (const [label, v] of Object.entries(obj || {})) ul.append(el("li", null, label + ": " + num(v)));
+      wrap.append(ul);
+    }
+    wrap.append(el("p", "muted", "Field mask: " + (r.fieldMask || "–") + " · " + num(r.googleCalls) + " calls · logged at about $" +
+      (typeof r.ledgerEstimateUsd === "number" ? r.ledgerEstimateUsd.toFixed(2) : "–") + " list price. " + (r.note || "")));
+    return wrap;
+  }
+
   /** F4: an area's free loading (Overture import, then the Studio's pre-reads), with its buttons. */
   function freeLoadingCell(area) {
     const td = el("td", "free-loading");
@@ -1388,6 +1471,7 @@
     if (bg.seed) sd.append(seedCard());
     parts.push(sd);
     if (bg.chains) parts.push(chainsCard(bg.chains));
+    parts.push(googleProbeCard());
 
     // Queue
     const q = el("section", "card costs-card");
