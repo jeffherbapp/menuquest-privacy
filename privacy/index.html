@@ -25,7 +25,7 @@
 
 <main class="narrow page">
 <h1>MenuQuest Privacy Policy</h1>
-<p class="date">Effective November 24, 2026</p>
+<p class="date">Effective November 28, 2026</p>
 
 <p class="summary"><strong>The short version:</strong> MenuQuest has no ads or tracking, and signing in is optional.
 Your restaurants, ratings, notes, trips and reservations stay on your device and in your own iCloud.
@@ -160,13 +160,14 @@ until the feature is out or you're removed.</p>
 joining a shared trip need a signed-in account.</p>
 <p>When you share a trip, or join one from an invite link, MenuQuest's server (Supabase) keeps
 one copy of its plan so everyone on the trip can see and change it: the trip's name, the
-destination (its name and map location), the dates and time zone, each planned meal (the
-restaurant's name and Google Place ID, the reservation time and link, where it was booked and
+destination (its name and Apple Maps ID), the dates and time zone, each planned meal (the
+restaurant's name, MenuQuest's ID for it, and its Google and Apple Maps place IDs, the reservation time and link, where it was booked and
 whether it's confirmed, and the note), who planned or last changed each meal, and the people on the trip (their account ID, the name each
 person chose to show, and who owns the trip). Everyone on the trip sees all of this, including
-the names of the others. Up to 8 people can be on a trip.</p>
-<p>A shared trip's On Deck list is kept the same way: each restaurant idea (its name, Google
-Place ID, cuisine and neighborhood, and a note), who added it, and the hearts people give it
+the names of the others. Up to 8 people can be on a trip. The server doesn't keep addresses
+or map locations: each phone looks those up from Apple Maps.</p>
+<p>A shared trip's On Deck list is kept the same way: each restaurant idea (its name, MenuQuest's
+ID for it, its Google and Apple Maps place IDs, cuisine and neighborhood, and a note), who added it, and the hearts people give it
 (who hearted which idea). Everyone on the trip sees who suggested and who hearted each idea.
 Scheduling an idea for a meal moves it into the plan; removing it deletes it from the server.
 Leaving a trip, or being removed, takes your hearts away; ideas you added stay on the trip
@@ -187,18 +188,22 @@ can make a new link at any time, which stops the old one working.</p>
 sharing deletes the server's copy; everyone keeps their own copy on their device. Leaving a
 trip removes you from it. Deleting your account removes you from every shared trip and deletes
 the server's copy of the trips you own.</p>
+<p>A shared trip is deleted from the server 30 days after its last day, with its meals, On Deck
+list and change log. Everyone on it keeps their own copy of the trip in their iCloud,
+including its meals and who was on it.</p>
 
 <h2 id="shared-tables">Shared tables</h2>
 <p>A reservation stays private on your device and in your iCloud unless you tap “Invite to my
 table”. Inviting people and joining a table need a signed-in account.</p>
 <p>When you invite people to your table, or join one from an invite link, MenuQuest's server
-(Supabase) keeps one copy of it so everyone at the table can see it: the restaurant (its name,
-Google Place ID, address, map location and cuisine), the day, the reservation time and time
+(Supabase) keeps one copy of it so everyone at the table can see it: the restaurant (its name and
+cuisine, MenuQuest's ID for it, and its Google and Apple Maps place IDs), the day, the reservation time and time
 zone, how it was booked, whether it's confirmed, the booking link, the host's note, and the
 people at the table (their account ID, the name each person chose to show, and who the host
 is). It also keeps the dishes people pin for the table (the dish's name, menu section and
 price, and who pinned it). Everyone at the table sees all of this, including the names of the
-others and who pinned each dish. Up to 8 people can be at a table.</p>
+others and who pinned each dish. Up to 8 people can be at a table. The server doesn't keep the
+restaurant's address or map location: each phone looks those up from Apple Maps.</p>
 <p>Only the host can change the table's details. Table pins belong to the table only: they
 never change the dishes you've tried, your ratings or your pinned restaurants. Your reminders,
 ratings, the dishes you mark off, and your notes on restaurants and dishes are never part of a
@@ -212,6 +217,9 @@ website. The host can make a new link at any time, which stops the old one worki
 deleting the reservation, deletes the server's copy and its pins; the host keeps their own
 reservation. Leaving a table removes you and your pins from it. Deleting your account removes
 you from every table and deletes the server's copy of the tables you host.</p>
+<p>A shared table is deleted from the server 30 days after its day, with its pins. Everyone at
+the table keeps their own record of it in their iCloud (the restaurant, the day and time, and
+who was there), so past meals still show in the Dining Calendar.</p>
 
 <h2 id="website">The MenuQuest website</h2>
 <p>menuquest.app has no ads, analytics, or tracking cookies. If you request a beta invite
