@@ -231,7 +231,7 @@
     const bgOn = sw.background_on === true;
     card.append(switchRow(
       "Background work",
-      "Prefetch, seeding and nightly re-reads. Limited by the caps below." +
+      "Prefetch, pre-loading and nightly re-reads. Limited by the caps below." +
         (queued.background ? " " + queued.background + " job" + (queued.background === 1 ? "" : "s") + " waiting." : ""),
       bgOn, "On", "Off", bgOn ? "Turn off" : "Turn on…",
       () => bgOn ? setBackground(false) : turnOnBackground(),
@@ -1158,7 +1158,7 @@
 
   // MARK: Background (A8a): seeding and the Studio's free work, caps, seed areas, queue.
 
-  const bg = { data: null, loaded: false, seed: null, studio: null, checks: null };
+  const bg = { data: null, loaded: false, studio: null, checks: null };
 
   function bgSay(text, isError) {
     $("bg-status").className = "status" + (isError ? " err" : "");
@@ -1266,11 +1266,11 @@
     s.append(bgLine);
     const seedingOn = sw.seeding_on === true;
     s.append(switchRow(
-      "Seeding",
-      "Google searches for new places in your seed areas ($0.032 a search), and a Google website lookup when one isn't known. " +
-        "Needs background work on too" + (seedingOn && !sw.background_on ? ": it's off, so seeding is waiting." : "."),
+      "Pre-loading",
+      "Lets the Studio find and read menus for the places you imported from Overture, before anyone adds them. Google is never asked. " +
+        "Needs background work on too" + (seedingOn && !sw.background_on ? ": it's off, so pre-loading is waiting." : "."),
       seedingOn, "On", "Off", seedingOn ? "Turn off" : "Turn on…",
-      () => seedingOn ? bgChange("set_seeding", { on: false }, "Seeding is off.") : turnOnSeeding(),
+      () => seedingOn ? bgChange("set_seeding", { on: false }, "Pre-loading is off.") : turnOnSeeding(),
     ));
     const freeOn = sw.studio_free_on === true;
     s.append(switchRow(
@@ -1291,7 +1291,7 @@
     // Caps
     const c = el("section", "card costs-card");
     c.append(el("h2", null, "Spending caps"));
-    c.append(el("p", "muted", "Background work, seeding and quality tests stop at these (UTC days and months). Testers' own adds don't count. " +
+    c.append(el("p", "muted", "Background work, pre-loading and quality tests stop at these (UTC days and months). Testers' own adds don't count. " +
       "So far: " + usd(caps.today_usd) + " today, " + usd(caps.month_usd) + " this month."));
     const form = el("form", "caps-form");
     const field = (labelText, value) => {
@@ -1312,7 +1312,7 @@
       const mv = Number(monthly.input.value);
       if (!isFinite(dv) || !isFinite(mv) || dv < 0 || mv < 0) return bgSay("Enter amounts of $0 or more.", true);
       const raising = dv > Number(caps.daily_usd) || mv > Number(caps.monthly_usd);
-      if (raising && !window.confirm("Raise the caps?\n\nBackground work, seeding and quality tests could then spend up to " +
+      if (raising && !window.confirm("Raise the caps?\n\nBackground work, pre-loading and quality tests could then spend up to " +
         usd(dv) + " a day and " + usd(mv) + " a month (now " + usd(caps.daily_usd) + " and " + usd(caps.monthly_usd) + ").")) return;
       bgChange("set_caps", raising ? { daily: dv, monthly: mv, confirm: true } : { daily: dv, monthly: mv }, "Caps saved.");
     });
@@ -1323,9 +1323,9 @@
     const sd = el("section", "card costs-card");
     const seeding = d.seeding || {};
     sd.append(el("h2", null, "Seed areas"));
-    const totals = el("p", "muted", num(seeding.seeded_total) + " of " + num(seeding.target_total) + " places seeded overall. ");
+    const totals = el("p", "muted", num(seeding.seeded_total) + " of " + num(seeding.target_total) + " places pre-loaded overall. ");
     totals.append(button("Change the overall target", null, () => {
-      const v = window.prompt("Most places to seed overall:", String(seeding.target_total || 0));
+      const v = window.prompt("Most places to pre-load overall:", String(seeding.target_total || 0));
       if (v === null) return;
       const n = Number(v);
       if (!Number.isInteger(n) || n < 0) return bgSay("Enter a whole number.", true);
@@ -1334,7 +1334,7 @@
     sd.append(totals);
     const t = el("table", "periods money");
     const head = el("tr");
-    for (const h of ["Area", "Target", "Seeded", "With links", "Last run", "Free loading", ""]) head.append(el("th", null, h));
+    for (const h of ["Area", "Target", "Pre-loaded", "With links", "Last run", "Free loading", ""]) head.append(el("th", null, h));
     const thead = el("thead");
     thead.append(head);
     const tbody = el("tbody");
@@ -1346,14 +1346,12 @@
       const actions = el("td");
       actions.append(
         button("Target", null, () => {
-          const v = window.prompt("Places to seed in " + a.label + ":", String(a.target));
+          const v = window.prompt("Places to pre-load in " + a.label + ":", String(a.target));
           if (v === null) return;
           const n = Number(v);
           if (!Number.isInteger(n) || n < 1) return bgSay("Enter a whole number of 1 or more.", true);
           bgChange("save_seed_area", { id: a.id, label: a.label, target: n, active: a.active }, "Area saved.");
         }),
-        document.createTextNode(" · "),
-        button("Seed…", null, () => seedEstimate(a.id)),
         document.createTextNode(" · "),
         button(a.active ? "Turn off" : "Turn on", null, () =>
           bgChange("save_seed_area", { id: a.id, label: a.label, target: a.target, active: !a.active }, a.active ? "Area off." : "Area on.")),
@@ -1383,9 +1381,7 @@
     });
     sd.append(el("p", "muted", "Adding an area spends nothing. Free loading: \"Import places\" has the Studio take the town's " +
       "restaurants from Overture's free map data, then \"Pre-read…\" has it read their menus in advance. Both are free: " +
-      "no Google, no Claude. Chain locations share their chain's menu and are skipped. \"Seed…\" is the paid Google way " +
-      "and shows what a run could cost before anything is spent."), add);
-    if (bg.seed) sd.append(seedCard());
+      "no Google, no Claude. Chain locations share their chain's menu and are skipped."), add);
     parts.push(sd);
     if (bg.chains) parts.push(chainsCard(bg.chains));
 
@@ -1716,108 +1712,16 @@
     return card;
   }
 
-  // A8b: estimate, then run.
-  async function seedEstimate(areaId) {
-    bgSay("Working out the estimate…");
-    try {
-      const res = await callApi("seed_estimate", { areaId });
-      if (res.status === 401) return route();
-      if (res.status !== 200) {
-        const m = res.body && res.body.error && res.body.error.message;
-        return bgSay(m || "Couldn't estimate (" + res.status + ").", true);
-      }
-      bg.seed = { estimate: res.body, report: null };
-      bgSay("");
-      renderBackground();
-      const card = document.querySelector(".seed-card");
-      if (card) card.scrollIntoView({ block: "nearest" });
-    } catch (e) {
-      console.error(e);
-      bgSay("Couldn't reach the server.", true);
-    }
-  }
-
-  function seedCard() {
-    const e = bg.seed.estimate;
-    const r = bg.seed.report;
-    const card = el("div", "seed-card");
-    card.append(el("h3", null, "Seed " + e.area.label));
-    if (r) {
-      const lines = [
-        num(r.newPlaces) + " new places found (" + num(r.searched) + " seen, " + num(r.inArea) + " in the area)",
-        num(r.queued) + " queued for the Studio to find their menus",
-        "OpenStreetMap gave " + num(r.osm && r.osm.match) + " a website, so no Google lookup is needed for those",
-        num(r.googleRequests) + " Google searches · " + usd(r.googleUsd),
-      ];
-      if (r.stoppedBy) lines.push("Stopped early: " + r.stoppedBy.replace("_", " "));
-      if (r.osmError) lines.push("OpenStreetMap didn't answer: " + r.osmError);
-      if (r.skipped) lines.push("Skipped: " + r.skipped);
-      const ul = el("ul", "plain-list");
-      for (const l of lines) ul.append(el("li", null, l));
-      card.append(el("p", null, "Done."), ul);
-      card.append(button("Close", "button small quiet", () => { bg.seed = null; renderBackground(); }));
-      return card;
-    }
-    const ul = el("ul", "plain-list");
-    ul.append(
-      el("li", null, "Room: " + num(e.room) + " more places here (" + num(e.seeded_here) + " of " + num(e.area.target) + "), " +
-        num(e.seeded_total) + " of " + num(e.target_total) + " overall"),
-      el("li", null, "At most " + num(e.max_searches) + " Google searches × $" + Number(e.per_search_usd || 0).toFixed(3) + " = " + usd(e.max_search_usd) +
-        " now, stopping at the caps (" + usd(e.left_today_usd) + " left today, " + usd(e.left_month_usd) + " this month)"),
-      el("li", null, "Later, at most " + usd(e.later_lookup_usd) + " for Google website lookups, only for places OpenStreetMap can't give a website (with background work on)"),
-    );
-    card.append(ul);
-    const blockers = e.blocker_text || [];
-    if (blockers.length) {
-      for (const b of blockers) card.append(el("p", "status err", b));
-    }
-    const row = el("div", "button-row");
-    const run = button("Run now…", "button small", () => seedRun());
-    run.disabled = blockers.length > 0;
-    row.append(run, button("Cancel", "button small quiet", () => { bg.seed = null; renderBackground(); }));
-    card.append(row);
-    return card;
-  }
-
-  async function seedRun() {
-    const e = bg.seed && bg.seed.estimate;
-    if (!e) return;
-    const ok = window.confirm("Seed " + e.area.label + " now?\n\n" +
-      "Up to " + num(e.max_searches) + " Google searches, at most " + usd(e.max_search_usd) + ", stopping at the caps. " +
-      "New places go to the Studio to find their menu links. This can take a minute.");
-    if (!ok) return;
-    for (const b of document.querySelectorAll(".seed-card button")) b.disabled = true;
-    bgSay("Seeding " + e.area.label + "… this can take a minute.");
-    try {
-      const res = await callApi("seed_run", { areaId: e.area.id, confirm: true });
-      if (res.status === 401) return route();
-      if (res.status !== 200) {
-        const m = res.body && res.body.error && res.body.error.message;
-        for (const b of document.querySelectorAll(".seed-card button")) b.disabled = false;
-        return bgSay(m || "The run didn't work (" + res.status + ").", true);
-      }
-      const report = res.body;
-      await loadBackground();
-      bg.seed = { estimate: e, report };
-      renderBackground();
-      bgSay("Seeding finished.");
-    } catch (err) {
-      console.error(err);
-      for (const b of document.querySelectorAll(".seed-card button")) b.disabled = false;
-      bgSay("Lost touch with the server. Refresh to see whether the run finished.", true);
-    }
-  }
-
   function turnOnSeeding() {
     const d = bg.data || {};
     const caps = d.caps || {};
     const sw = d.switches || {};
-    const ok = window.confirm("Turn seeding on?\n\n" +
-      "Seeding searches Google for new places ($0.032 a search) and looks up websites it can't find elsewhere ($0.02 each). " +
-      "It counts against the caps: " + usd(caps.daily_usd) + " a day, " + usd(caps.monthly_usd) + " a month " +
+    const ok = window.confirm("Turn pre-loading on?\n\n" +
+      "The Studio finds and reads menus for places imported from Overture. Google is never asked. " +
+      "Anything paid still counts against the caps: " + usd(caps.daily_usd) + " a day, " + usd(caps.monthly_usd) + " a month " +
       "(" + usd(caps.today_usd) + " and " + usd(caps.month_usd) + " counted so far)." +
       (sw.background_on ? "" : "\n\nBackground work is off, so nothing will run until it's on."));
-    if (ok) bgChange("set_seeding", { on: true, confirm: true }, "Seeding is on.");
+    if (ok) bgChange("set_seeding", { on: true, confirm: true }, "Pre-loading is on.");
   }
 
 
