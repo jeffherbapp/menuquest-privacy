@@ -504,15 +504,16 @@
 
   function renderQueue(queue) {
     const items = (queue && Array.isArray(queue.items)) ? queue.items : [];
-    libSay(queue ? (items.length ? "Background re-reads that found far fewer dishes than the live menu. The live menu stays until you approve." : "Nothing waiting for review.") : "Couldn't load the review queue.", !queue);
+    libSay(queue ? (items.length ? "Menus set aside for you: re-reads that found far fewer dishes than the live menu, and menus from a website that may be another restaurant's. Nothing changes until you approve." : "Nothing waiting for review.") : "Couldn't load the review queue.", !queue);
     $("lib-items").replaceChildren(...items.map((it) => {
       const li = el("li");
       const row = el("button", "lib-row");
       row.type = "button";
       const tags = el("span", "lib-tags");
-      tags.append(badge(num(it.new_count) + " vs " + num(it.live_count) + " dishes", "off"));
+      const held = it.reason === "name_mismatch";
+      tags.append(held ? badge("Website may not match", "off") : badge(num(it.new_count) + " vs " + num(it.live_count) + " dishes", "off"));
       row.append(el("span", "lib-name", it.name || it.place_id), tags,
-        el("span", "lib-meta", "Re-read " + when(it.created_at) + (it.model ? " · " + it.model : "")));
+        el("span", "lib-meta", (held ? "Read " : "Re-read ") + when(it.created_at) + (it.model && !held ? " · " + it.model : "")));
       row.addEventListener("click", () => { lib.review = it; openMenu(it.place_id, it.menu_id || null); });
       li.append(row);
       return li;
@@ -523,8 +524,19 @@
     const it = lib.review;
     const card = el("section", "card review-card");
     card.append(el("h3", null, "Waiting for your review"));
-    card.append(el("p", null, "A background re-read found " + num(it.new_count) + " dishes; the live menu has " + num(it.live_count) +
-      ". It was set aside because that's less than half. It's shown below."));
+    if (it.reason === "name_mismatch") {
+      // S4: the website Google listed shares no real word with the restaurant's name.
+      const p = el("p", null, "This menu (" + num(it.new_count) + " dishes) came from a website whose name has nothing in common with this restaurant's listing, so it may be another restaurant's. ");
+      if (it.source_url) {
+        const a = el("a", null, "Open the page it was read from");
+        a.href = it.source_url; a.target = "_blank"; a.rel = "noopener";
+        p.append(a, document.createTextNode("."));
+      }
+      card.append(p, el("p", "muted", "Approve if it's this restaurant's menu: it goes live and later reads of this website aren't held. Reject to keep it hidden."));
+    } else {
+      card.append(el("p", null, "A background re-read found " + num(it.new_count) + " dishes; the live menu has " + num(it.live_count) +
+        ". It was set aside because that's less than half. It's shown below."));
+    }
     const row = el("div", "button-row");
     row.append(
       button("Approve: make it live…", "button small", () => decide(true)),
@@ -544,7 +556,12 @@
   async function decide(approve) {
     const it = lib.review;
     if (!it) return;
-    const ok = approve
+    const held = it.reason === "name_mismatch";
+    const ok = held
+      ? (approve
+        ? window.confirm("This is the restaurant's menu?\n\nIts " + num(it.new_count) + " dishes go live for everyone, and later reads of this website aren't held.")
+        : window.confirm("Reject this menu?\n\nIt stays hidden. Later reads of this website stay held until its website is fixed."))
+      : approve
       ? window.confirm("Make this re-read the live menu?\n\n" + num(it.new_count) + " dishes replace " + num(it.live_count) +
           " for every tester, from their next refresh or add.\nThe current menu is kept: hide the new version to bring it back.")
       : window.confirm("Reject this re-read?\n\nIt stays hidden and the live menu (" + num(it.live_count) + " dishes) stays as it is.");
@@ -1287,6 +1304,8 @@
     if (bg.studio) parts.push(studioCard(bg.studio));
     // A10: nightly checks
     if (bg.checks) parts.push(checksCard(bg.checks));
+    // S4: one-time clean-up of the Studio's old saved pages.
+    parts.push(snapshotNamesCard());
 
     // Caps
     const c = el("section", "card costs-card");
@@ -1709,6 +1728,48 @@
     }
     t.append(thead, tbody);
     card.append(t);
+    return card;
+  }
+
+  // S4 (Google data audit): the Studio's old saved pages carry the name they were read with, usually
+  // Google's. One-time and free (Storage only): each call checks 200, until none are left.
+  function snapshotNamesCard() {
+    const card = el("section", "card costs-card");
+    card.append(el("h2", null, "Studio saved pages"),
+      el("p", "muted", "One-time clean-up: old saved pages carry the restaurant name they were read with (usually Google's). " +
+        "This gives them our own name, or none. Free: no Google, no Claude. Safe to run again."));
+    const st = el("p", "status", "");
+    st.setAttribute("role", "status");
+    const go = button("Remove old names…", "button small", async () => {
+      if (!window.confirm("Give the Studio's old saved pages our own restaurant names?\n\nFree. It works through them 200 at a time and can take a minute.")) return;
+      go.disabled = true;
+      let total = 0, unreadable = 0;
+      try {
+        for (let i = 0; i < 200; i++) {
+          st.className = "status"; st.textContent = "Working… " + num(total) + " changed so far.";
+          const res = await callApi("strip_snapshot_names", {});
+          if (res.status === 401) return route();
+          if (res.status !== 200) {
+            const m = res.body && res.body.error && res.body.error.message;
+            st.className = "status err"; st.textContent = m || "That didn't work (" + res.status + ").";
+            return;
+          }
+          total += Number(res.body.rewritten || 0);
+          unreadable += Number(res.body.unreadable || 0);
+          if (!res.body.left || !res.body.checked) {
+            st.textContent = "Done. " + num(total) + " saved pages changed" + (unreadable ? ", " + num(unreadable) + " couldn't be read" : "") + ".";
+            return;
+          }
+        }
+        st.textContent = "Stopped after a while: run it again to finish (" + num(total) + " changed so far).";
+      } catch (e) {
+        console.error(e);
+        st.className = "status err"; st.textContent = "Couldn't reach the server. Run it again to continue.";
+      } finally {
+        go.disabled = false;
+      }
+    });
+    card.append(go, st);
     return card;
   }
 
